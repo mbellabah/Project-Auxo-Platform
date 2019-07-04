@@ -47,7 +47,8 @@ class MajorDomoClient(object):
         # Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
         # Frame 2: Service name (printable string -- encode to bytes)
 
-        request = [b"", MDP.C_CLIENT, service.encode("utf8")] + request
+        request = [b"", MDP.C_CLIENT, service] + request
+        request = self.ensure_is_bytes(request)
         if self.verbose:
             logging.warning("I: send request to '%s' service: ", service)
             dump(request)
@@ -78,3 +79,17 @@ class MajorDomoClient(object):
             return msg
         else:
             logging.warning("W: permanent error, abandoning request")
+
+    @staticmethod
+    def ensure_is_bytes(msg):
+        out = []
+        for part in msg:
+            if not isinstance(part, bytes):
+                try:
+                    part = part.encode("utf8")
+                except:
+                    print("Failed to check if bytes")
+                    return
+            out.append(part)
+
+        return out

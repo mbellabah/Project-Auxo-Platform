@@ -135,11 +135,13 @@ class MajorDomoBroker(object):
 
         elif MDP.W_REPLY == command:
             if worker_ready:
-                # Remoeve and save client return envelope and insert the protocol header and service name, then rewrap
+                # Remove and save client return envelope and insert the protocol header and service name, then rewrap
                 client = msg.pop(0)
                 empty = msg.pop(0)
 
                 msg = [client, "", MDP.C_CLIENT, worker.service.name] + msg
+                msg = self.ensure_is_bytes(msg)
+
                 self.socket.send_multipart(msg)
                 self.worker_waiting(worker)
             else:
@@ -206,6 +208,7 @@ class MajorDomoBroker(object):
 
         # Insert the procol header and service name after the routing envelope
         msg = msg[:2] + [MDP.C_CLIENT, service] + msg[2:]
+        msg = self.ensure_is_bytes(msg)
         self.socket.send_multipart(msg)
 
     def send_heartbeats(self):
@@ -258,7 +261,6 @@ class MajorDomoBroker(object):
         if option is not None:
             msg = [option] + msg
         msg = [worker.address, b"", MDP.W_WORKER, command] + msg
-
         msg = self.ensure_is_bytes(msg)     # Try to make everything a byte
 
         if self.verbose:
