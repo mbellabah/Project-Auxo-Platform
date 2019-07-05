@@ -33,7 +33,7 @@ class MajorDomoWorker(object):
         self.worker_name = worker_name
         self.ctx = zmq.Context()
         self.poller = zmq.Poller()
-        logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
+        logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
         self.reconnect_to_broker()
 
@@ -69,7 +69,7 @@ class MajorDomoWorker(object):
         if option:
             msg = [option.encode("utf8")] + msg
 
-        msg = [b'', self.worker_name, command] + msg
+        msg = [b'', MDP.W_WORKER, self.worker_name, command] + msg
         msg = self.ensure_is_bytes(msg)     # ensure that the message is only bytes
 
         if self.verbose:
@@ -107,10 +107,9 @@ class MajorDomoWorker(object):
                 assert len(msg) >= 3
 
                 empty = msg.pop(0)
-                # assert empty == ''
-
+                assert empty == b''
                 header = msg.pop(0)
-                assert header == self.worker_name
+                assert header == MDP.W_WORKER
 
                 command = msg.pop(0)
                 if command == MDP.W_REQUEST:
@@ -119,7 +118,7 @@ class MajorDomoWorker(object):
                     self.reply_to = msg.pop(0)
                     # pop empty
                     empty = msg.pop(0)
-                    # assert empty == ''
+                    assert empty == b''
 
                     return msg # We have a request to process
                 elif command == MDP.W_HEARTBEAT:

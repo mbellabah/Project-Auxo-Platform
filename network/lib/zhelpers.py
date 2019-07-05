@@ -30,8 +30,7 @@ def dump(msg_or_socket):
         print("[%03d]" % len(part), end=' ')
         is_text = True
         try:
-            print(part)
-            # print(part.decode('utf8'))
+            print(part, part.decode("utf8"))
         except UnicodeDecodeError:
             print(r"0x%s" % (binascii.hexlify(part).decode('ascii')))
 

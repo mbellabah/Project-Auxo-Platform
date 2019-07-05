@@ -51,7 +51,7 @@ class MajorDomoClient(object):
         # Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
         # Frame 2: Service name (printable string -- encode to bytes)
 
-        request = [b"", self.client_name, service] + request
+        request = [b"", MDP.C_CLIENT, self.client_name, service] + request
         request = self.ensure_is_bytes(request)
         if self.verbose:
             logging.warning("I: send request to '%s' service: ", service)

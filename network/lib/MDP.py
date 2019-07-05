@@ -1,7 +1,7 @@
 """MDP Protocol Definitions"""
 
-C_CLIENT = b"MDPC01"
-W_WORKER = b"MDPW01"
+C_CLIENT = b"MDPC"
+W_WORKER = b"MDPW"
 
 
 # MDP/Server commands, as bytes -- these are the base behaviors

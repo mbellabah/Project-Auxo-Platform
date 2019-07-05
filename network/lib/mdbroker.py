@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+import random
 from binascii import hexlify
 
 import zmq
@@ -69,10 +70,10 @@ class MajorDomoBroker(object):
         self.poller = zmq.Poller()
         self.poller.register(self.socket, zmq.POLLIN)
 
-        logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
+        logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
     def mediate(self):
-        """ Main broker work happens here """
+        """ Main broker work happens here -- mediates between the client and the worker socket """
         while True:
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
@@ -86,7 +87,7 @@ class MajorDomoBroker(object):
 
                 sender = msg.pop(0)
                 empty = msg.pop(0)
-                # assert empty == ""
+                assert empty == b""
                 header = msg.pop(0)
 
                 if MDP.C_CLIENT == header:
@@ -120,10 +121,13 @@ class MajorDomoBroker(object):
     def process_worker(self, sender, msg):
         """ Process message sent to us by a worker """
         assert len(msg) >= 1        # at least, command
+        worker_name = msg.pop(0)
         command = msg.pop(0)
 
         worker_ready = hexlify(sender) in self.workers
         worker = self.require_worker(sender)
+
+        logging.debug(f"PROCESS_WORKER_DEBUG: {command}")
 
         if MDP.W_READY == command:
             assert len(msg) >= 1
@@ -141,7 +145,7 @@ class MajorDomoBroker(object):
                 client = msg.pop(0)
                 empty = msg.pop(0)
 
-                msg = [client, "", MDP.C_CLIENT, worker.service.name] + msg
+                msg = [client, b"", MDP.C_CLIENT, worker.service.name] + msg
                 msg = self.ensure_is_bytes(msg)
 
                 self.socket.send_multipart(msg)
