@@ -7,10 +7,10 @@ from mdwrkapi import MajorDomoWorker
 
 
 class Worker(object):
-    def __init__(self, worker_name, host, port, verbose, service="echo"):
+    def __init__(self, worker_name, broker, port, verbose, service="echo"):
         self.worker_name = worker_name
-        self.host = host
-        self.port = port
+        self.broker = broker        # Broker's ip addr
+        self.port = port            # Broker's backend port
         self.verbose = verbose
 
         self.service = service
@@ -18,7 +18,7 @@ class Worker(object):
             "echo": self.service_echo
         }
 
-        self.worker = MajorDomoWorker(f"tcp://{self.host}:{self.port}", self.service, self.verbose, self.worker_name)
+        self.worker = MajorDomoWorker(f"tcp://{self.broker}:{self.port}", self.service, self.verbose, self.worker_name)
 
     def change_service(self, service_name):
         if service_name in self.services:
@@ -45,16 +45,16 @@ def main():
     verbose = '-v' in user_args
 
     # Args: -v *verbose* host port worker_name
-    host = "localhost"      # Ip address of the broker
+    broker_addr = "localhost"      # Ip address of the broker
     port = 5555
     worker_name = 'W?'
     if len(user_args) > 2:
-        host = user_args[2]
+        broker_addr = user_args[2]
         port = user_args[3]
         worker_name = user_args[4]
 
     # Instantiate and dispatch the worker
-    worker = Worker(worker_name, host, port, verbose, service="echo")
+    worker = Worker(worker_name, broker_addr, port, verbose, service="echo")
     worker.run()
 
 

@@ -11,6 +11,9 @@ import MDP as MDP
 from zhelpers import dump
 
 # TODO: Address issues having to do with the broker failing to receive message from worker
+# TODO: Connect this platform to the GUI, allow a spot to enter text
+#       For the GUI, implement a separate screen (navigate via menu or tabs?) that allows one to see the broker
+#       interface!
 
 
 class Service(object):
