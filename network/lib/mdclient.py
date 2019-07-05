@@ -3,8 +3,18 @@ from mdcliapi import MajorDomoClient
 
 
 def main():
-    verbose = '-v' in sys.argv
-    client = MajorDomoClient("tcp://localhost:5555", verbose)
+    user_args = sys.argv
+    verbose = '-v' in user_args
+
+    # Args: -v *verbose* host port client_name
+    host = "localhost"      # ip address of the broker
+    port = 5555
+    if len(user_args) > 2:
+        host = user_args[2]
+        port = user_args[3]
+        client_name = user_args[4]
+
+    client = MajorDomoClient(f"tcp://{host}:{port}", verbose, client_name=client_name)
     requests = 10
     for i in range(requests):
         request = "Hello world"

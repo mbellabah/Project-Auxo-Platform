@@ -9,6 +9,8 @@ import zmq
 import MDP as MDP
 from zhelpers import dump
 
+# TODO: Address issues having to do with the broker failing to receive message from worker
+
 
 class Service(object):
     """ A single Service """

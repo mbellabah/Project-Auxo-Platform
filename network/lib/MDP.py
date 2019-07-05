@@ -1,7 +1,6 @@
 """MDP Protocol Definitions"""
 
 C_CLIENT = b"MDPC01"
-
 W_WORKER = b"MDPW01"
 
 

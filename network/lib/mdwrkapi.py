@@ -24,10 +24,13 @@ class MajorDomoWorker(object):
 
     reply_to = None       # Return address if any
 
-    def __init__(self, broker, service, verbose=False):
+    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER):
         self.broker = broker
         self.service = service
         self.verbose = verbose
+        if not isinstance(worker_name, bytes):
+            worker_name = worker_name.encode("utf8")
+        self.worker_name = worker_name
         self.ctx = zmq.Context()
         self.poller = zmq.Poller()
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
@@ -66,7 +69,7 @@ class MajorDomoWorker(object):
         if option:
             msg = [option.encode("utf8")] + msg
 
-        msg = [b'', MDP.W_WORKER, command] + msg
+        msg = [b'', self.worker_name, command] + msg
         msg = self.ensure_is_bytes(msg)     # ensure that the message is only bytes
 
         if self.verbose:
@@ -107,7 +110,7 @@ class MajorDomoWorker(object):
                 # assert empty == ''
 
                 header = msg.pop(0)
-                assert header == MDP.W_WORKER
+                assert header == self.worker_name
 
                 command = msg.pop(0)
                 if command == MDP.W_REQUEST:

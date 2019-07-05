@@ -5,6 +5,7 @@ import zmq
 import MDP as MDP
 from zhelpers import dump
 
+
 class MajorDomoClient(object):
     """Majordomo Protocol Client API, Python version.
       Implements the MDP/Worker spec at http:#rfc.zeromq.org/spec:7.
@@ -16,9 +17,12 @@ class MajorDomoClient(object):
     timeout = 2500
     verbose = False
 
-    def __init__(self, broker, verbose=False):
+    def __init__(self, broker, verbose=False, client_name=MDP.C_CLIENT):
         self.broker = broker
         self.verbose = verbose
+        if not isinstance(client_name, bytes):
+            client_name = client_name.encode("utf8")
+        self.client_name = client_name
         self.ctx = zmq.Context()
         self.poller = zmq.Poller()
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
@@ -47,7 +51,7 @@ class MajorDomoClient(object):
         # Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
         # Frame 2: Service name (printable string -- encode to bytes)
 
-        request = [b"", MDP.C_CLIENT, service] + request
+        request = [b"", self.client_name, service] + request
         request = self.ensure_is_bytes(request)
         if self.verbose:
             logging.warning("I: send request to '%s' service: ", service)
@@ -73,7 +77,7 @@ class MajorDomoClient(object):
 
             empty = msg.pop(0)
             header = msg.pop(0)
-            assert MDP.C_CLIENT == header
+            assert self.client_name == header
 
             service = msg.pop(0)
             return msg
