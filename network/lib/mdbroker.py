@@ -1,13 +1,13 @@
 import logging
 import sys
 import time
-import random
+from collections import deque
 from binascii import hexlify
 
 import zmq
 
 # Local
-import MDP as MDP
+import MDP
 from zhelpers import dump
 
 # TODO: Address issues having to do with the broker failing to receive message from worker
@@ -19,13 +19,13 @@ from zhelpers import dump
 class Service(object):
     """ A single Service """
     name = None
-    requests = None     # List of client requests
-    waiting = None      # List of waiting workers
+    requests = None     # Queue of client requests
+    waiting = None      # Queue of waiting workers
 
     def __init__(self, name):
         self.name = name
-        self.requests = []
-        self.waiting = []
+        self.requests = deque()
+        self.waiting = deque()
 
 
 class Worker(object):
@@ -44,7 +44,7 @@ class Worker(object):
 class MajorDomoBroker(object):
     """ Majordomo protocol broker"""
     INTERNAL_SERVICE_PREFIX = b"mmi."
-    HEARTBEAT_LIVENESS = 3
+    HEARTBEAT_LIVENESS = 4
     HEARTBEAT_INTERVAL = 2500       # msecs
     HEARTBEAT_EXPIRY = HEARTBEAT_INTERVAL * HEARTBEAT_LIVENESS
 
@@ -73,11 +73,12 @@ class MajorDomoBroker(object):
         self.poller = zmq.Poller()
         self.poller.register(self.socket, zmq.POLLIN)
 
-        logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
+        logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
     def mediate(self):
         """ Main broker work happens here -- mediates between the client and the worker socket """
         while True:
+            # logging.info(f"MEDIATE_DEBUG: {self.waiting}")
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
             except KeyboardInterrupt:
@@ -113,12 +114,16 @@ class MajorDomoBroker(object):
     def process_client(self, sender, msg):
         """ Process a request coming from a client """
         assert len(msg) >= 2        # Service_name + body
+        sender_name = msg.pop(0)
         service = msg.pop(0)
+        print(f"DEBUG: msg: {sender}, service: {service}")  # FIXME: Remove
+
         # Set reply return address to client sender
         msg = [sender, ""] + msg
         if service.startswith(self.INTERNAL_SERVICE_PREFIX):
             self.service_internal(service, msg)
         else:
+            # print(f"DEBUG: msg: {msg}, service: {service}")      # FIXME: Remove
             self.dispatch(self.require_service(service), msg)
 
     def process_worker(self, sender, msg):
@@ -129,8 +134,6 @@ class MajorDomoBroker(object):
 
         worker_ready = hexlify(sender) in self.workers
         worker = self.require_worker(sender)
-
-        logging.debug(f"PROCESS_WORKER_DEBUG: {command}")
 
         if MDP.W_READY == command:
             assert len(msg) >= 1
@@ -171,6 +174,7 @@ class MajorDomoBroker(object):
 
     def delete_worker(self, worker, disconnect):
         """ Deletes the worker from all data structures and deletes worker """
+        logging.info("DELETE_WORKER_DEBUG: Delete worker")
         assert worker is not None
         if disconnect:
             self.send_to_worker(worker, MDP.W_DISCONNECT, None, None)
@@ -215,7 +219,7 @@ class MajorDomoBroker(object):
             returncode = "200" if name in self.services else "404"
         msg[-1] = returncode
 
-        # Insert the procol header and service name after the routing envelope
+        # Insert the protocol header and service name after the routing envelope
         msg = msg[:2] + [MDP.C_CLIENT, service] + msg[2:]
         msg = self.ensure_is_bytes(msg)
         self.socket.send_multipart(msg)
@@ -255,8 +259,8 @@ class MajorDomoBroker(object):
         self.purge_workers()
 
         while service.waiting and service.requests:
-            msg = service.requests.pop(0)
-            worker = service.waiting.pop(0)
+            msg = service.requests.popleft()
+            worker = service.waiting.popleft()
             self.waiting.remove(worker)
             self.send_to_worker(worker, MDP.W_REQUEST, None, msg)
 

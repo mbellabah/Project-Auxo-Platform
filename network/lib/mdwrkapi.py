@@ -3,7 +3,7 @@ import time
 import zmq
 
 from zhelpers import dump
-import MDP as MDP
+import MDP
 
 
 class MajorDomoWorker(object):
@@ -155,12 +155,13 @@ class MajorDomoWorker(object):
     @staticmethod
     def ensure_is_bytes(msg):
         out = []
+        print(f"DEBUG DEBUG ensure_is_bytes, msg: {msg}")       # FIXME: Remove
         for part in msg:
             if not isinstance(part, bytes):
                 try:
                     part = part.encode("utf8")
-                except:
-                    print("Failed to check if bytes")
+                except Exception as e:
+                    print(f"Failed to check if bytes: {e}")
                     return
             out.append(part)
 

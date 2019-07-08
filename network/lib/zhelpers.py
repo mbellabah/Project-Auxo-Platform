@@ -10,6 +10,7 @@ from random import randint
 
 import zmq
 
+
 def socket_set_hwm(socket, hwm=-1):
     """libzmq 2/3/4 compatible sethwm"""
     try:
@@ -26,6 +27,7 @@ def dump(msg_or_socket):
     else:
         msg = msg_or_socket
     print("----------------------------------------")
+    print(f"DEBUG: DEBUG: Dump debug: {msg}")
     for part in msg:
         print("[%03d]" % len(part), end=' ')
         is_text = True

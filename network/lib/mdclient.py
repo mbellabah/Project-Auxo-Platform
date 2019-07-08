@@ -6,7 +6,7 @@ class Client(object):
     def __init__(self, client_name, broker, port, verbose):
         self.client_name = client_name
         self.broker = broker        # broker's ip addr
-        self.port = port        # broker's frontfend port
+        self.port = port        # broker's port
         self.verbose = verbose
 
         self.client = MajorDomoClient(f"tcp://{self.broker}:{self.port}", verbose, client_name=self.client_name)

@@ -2,7 +2,7 @@ import logging
 
 import zmq
 
-import MDP as MDP
+import MDP
 from zhelpers import dump
 
 
@@ -23,6 +23,7 @@ class MajorDomoClient(object):
         if not isinstance(client_name, bytes):
             client_name = client_name.encode("utf8")
         self.client_name = client_name
+        self.agent_type = MDP.C_CLIENT
         self.ctx = zmq.Context()
         self.poller = zmq.Poller()
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
@@ -75,10 +76,11 @@ class MajorDomoClient(object):
             # Don't try to handle errors, just assert noisily
             assert len(msg) >= 4
 
-            empty = msg.pop(0)
-            header = msg.pop(0)
-            assert self.client_name == header
+            print(f"DEBUG DEBUG: msg: {msg}, client_name: {self.client_name}")      # FIXME: Remove
 
+            _ = msg.pop(0)
+            header = msg.pop(0)
+            assert self.agent_type == header
             service = msg.pop(0)
             return msg
         else:

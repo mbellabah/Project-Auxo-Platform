@@ -1,17 +1,24 @@
 import sys
+import MDP
 from mdwrkapi import MajorDomoWorker
+
+import json
 
 # TODO: Interconnect the workers, perhaps use pub and sub -- better to receive the endpoints
 #       from the broker, and use that to connect with various workers on the same service!
 # TODO: Construct class abstractions for a worker
+
+# TODO: Implement the json thing
+# TODO: Interconnec the agents in layer 3
 
 
 class Worker(object):
     def __init__(self, worker_name, broker, port, verbose, service="echo"):
         self.worker_name = worker_name
         self.broker = broker        # Broker's ip addr
-        self.port = port            # Broker's backend port
+        self.port = port            # Broker's port
         self.verbose = verbose
+        self.agent_type = MDP.W_WORKER
 
         self.service = service
         self.services = {
@@ -33,7 +40,8 @@ class Worker(object):
             request = self.worker.recv(reply)
             if request is None:
                 break
-            reply = request  # simple echo
+            reply = {request, self.worker_name}   # simple echo
+            reply = json.dumps(reply).encode("utf8")
 
     def run(self):
         # run the service function
