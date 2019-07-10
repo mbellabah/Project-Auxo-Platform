@@ -3,7 +3,7 @@ import logging
 import zmq
 
 import MDP
-from zhelpers import dump
+from zhelpers import dump, ensure_is_bytes
 
 
 class MajorDomoClient(object):
@@ -53,7 +53,7 @@ class MajorDomoClient(object):
         # Frame 2: Service name (printable string -- encode to bytes)
 
         request = [b"", MDP.C_CLIENT, self.client_name, service] + request
-        request = self.ensure_is_bytes(request)
+        request = ensure_is_bytes(request)
         if self.verbose:
             logging.warning("I: send request to '%s' service: ", service)
             dump(request)
@@ -76,8 +76,6 @@ class MajorDomoClient(object):
             # Don't try to handle errors, just assert noisily
             assert len(msg) >= 4
 
-            print(f"DEBUG DEBUG: msg: {msg}, client_name: {self.client_name}")      # FIXME: Remove
-
             _ = msg.pop(0)
             header = msg.pop(0)
             assert self.agent_type == header
@@ -85,17 +83,3 @@ class MajorDomoClient(object):
             return msg
         else:
             logging.warning("W: permanent error, abandoning request")
-
-    @staticmethod
-    def ensure_is_bytes(msg):
-        out = []
-        for part in msg:
-            if not isinstance(part, bytes):
-                try:
-                    part = part.encode("utf8")
-                except:
-                    print("Failed to check if bytes")
-                    return
-            out.append(part)
-
-        return out

@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+import json
 from collections import deque
 from binascii import hexlify
 
@@ -8,7 +9,7 @@ import zmq
 
 # Local
 import MDP
-from zhelpers import dump
+from zhelpers import dump, ensure_is_bytes
 
 # TODO: Address issues having to do with the broker failing to receive message from worker
 # TODO: Connect this platform to the GUI, allow a spot to enter text
@@ -78,7 +79,7 @@ class MajorDomoBroker(object):
     def mediate(self):
         """ Main broker work happens here -- mediates between the client and the worker socket """
         while True:
-            # logging.info(f"MEDIATE_DEBUG: {self.waiting}")
+            logging.info(f"MEDIATE_DEBUG: {self.services}")
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
             except KeyboardInterrupt:
@@ -116,14 +117,12 @@ class MajorDomoBroker(object):
         assert len(msg) >= 2        # Service_name + body
         sender_name = msg.pop(0)
         service = msg.pop(0)
-        print(f"DEBUG: msg: {sender}, service: {service}")  # FIXME: Remove
 
         # Set reply return address to client sender
         msg = [sender, ""] + msg
         if service.startswith(self.INTERNAL_SERVICE_PREFIX):
             self.service_internal(service, msg)
         else:
-            # print(f"DEBUG: msg: {msg}, service: {service}")      # FIXME: Remove
             self.dispatch(self.require_service(service), msg)
 
     def process_worker(self, sender, msg):
@@ -152,7 +151,7 @@ class MajorDomoBroker(object):
                 empty = msg.pop(0)
 
                 msg = [client, b"", MDP.C_CLIENT, worker.service.name] + msg
-                msg = self.ensure_is_bytes(msg)
+                msg = ensure_is_bytes(msg)
 
                 self.socket.send_multipart(msg)
                 self.worker_waiting(worker)
@@ -221,7 +220,7 @@ class MajorDomoBroker(object):
 
         # Insert the protocol header and service name after the routing envelope
         msg = msg[:2] + [MDP.C_CLIENT, service] + msg[2:]
-        msg = self.ensure_is_bytes(msg)
+        msg = ensure_is_bytes(msg)
         self.socket.send_multipart(msg)
 
     def send_heartbeats(self):
@@ -274,27 +273,13 @@ class MajorDomoBroker(object):
         if option is not None:
             msg = [option] + msg
         msg = [worker.address, b"", MDP.W_WORKER, command] + msg
-        msg = self.ensure_is_bytes(msg)     # Try to make everything a byte
+        msg = ensure_is_bytes(msg)     # Try to make everything a byte
 
         if self.verbose:
             logging.info(f"I: sending {command} to worker")
             dump(msg)
 
         self.socket.send_multipart(msg)
-
-    @staticmethod
-    def ensure_is_bytes(msg):
-        out = []
-        for part in msg:
-            if not isinstance(part, bytes):
-                try:
-                    part = part.encode("utf8")
-                except:
-                    print("Failed to check if bytes")
-                    return
-            out.append(part)
-
-        return out
 
 
 def main():

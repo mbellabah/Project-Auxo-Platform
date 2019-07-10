@@ -2,14 +2,12 @@ import sys
 import MDP
 from mdwrkapi import MajorDomoWorker
 
-import json
-
 # TODO: Interconnect the workers, perhaps use pub and sub -- better to receive the endpoints
 #       from the broker, and use that to connect with various workers on the same service!
 # TODO: Construct class abstractions for a worker
 
 # TODO: Implement the json thing
-# TODO: Interconnec the agents in layer 3
+# TODO: Interconnect the agents in layer 3
 
 
 class Worker(object):
@@ -22,7 +20,8 @@ class Worker(object):
 
         self.service = service
         self.services = {
-            "echo": self.service_echo
+            "echo": self.service_echo,
+            "none": self.service_none
         }
 
         self.worker = MajorDomoWorker(f"tcp://{self.broker}:{self.port}", self.service, self.verbose, self.worker_name)
@@ -40,13 +39,23 @@ class Worker(object):
             request = self.worker.recv(reply)
             if request is None:
                 break
-            reply = {request, self.worker_name}   # simple echo
-            reply = json.dumps(reply).encode("utf8")
+            reply = {'payload': request, 'origin': self.worker_name}   # simple echo
+
+    def service_none(self):
+        assert self.service == "none"
+        reply = None
+        while True:
+            request = self.worker.recv(reply)
+            if request is None:
+                break
+            reply = None
 
     def run(self):
         # run the service function
-        self.services[self.service]()
-
+        try:
+            self.services[self.service]()
+        except KeyError as e:
+            print(f"{self.service} behaivor is not implemented: {e}")
 
 def main():
     user_args = sys.argv
@@ -56,13 +65,15 @@ def main():
     broker_addr = "localhost"      # Ip address of the broker
     port = 5555
     worker_name = 'W?'
+    service = "echo"
     if len(user_args) > 2:
         broker_addr = user_args[2]
         port = user_args[3]
         worker_name = user_args[4]
+        service = user_args[5]
 
     # Instantiate and dispatch the worker
-    worker = Worker(worker_name, broker_addr, port, verbose, service="echo")
+    worker = Worker(worker_name, broker_addr, port, verbose, service)
     worker.run()
 
 

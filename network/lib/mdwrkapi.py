@@ -2,7 +2,7 @@ import logging
 import time
 import zmq
 
-from zhelpers import dump
+from zhelpers import dump, ensure_is_bytes
 import MDP
 
 
@@ -70,7 +70,7 @@ class MajorDomoWorker(object):
             msg = [option.encode("utf8")] + msg
 
         msg = [b'', MDP.W_WORKER, self.worker_name, command] + msg
-        msg = self.ensure_is_bytes(msg)     # ensure that the message is only bytes
+        msg = ensure_is_bytes(msg)     # ensure that the message is only bytes
 
         if self.verbose:
             logging.info(f"I: sending {command} to broker")
@@ -84,7 +84,10 @@ class MajorDomoWorker(object):
 
         if reply is not None:
             assert self.reply_to is not None
-            reply = [self.reply_to, ''] + reply
+            try:
+                reply = [self.reply_to, ''] + reply
+            except TypeError:       # probably trying to concatenate a list with dict
+                reply = [self.reply_to, ''] + [reply]
             self.send_to_broker(MDP.W_REPLY, msg=reply)
 
         self.expect_reply = True
@@ -152,17 +155,3 @@ class MajorDomoWorker(object):
     def destroy(self):
         self.ctx.destroy(0)
 
-    @staticmethod
-    def ensure_is_bytes(msg):
-        out = []
-        print(f"DEBUG DEBUG ensure_is_bytes, msg: {msg}")       # FIXME: Remove
-        for part in msg:
-            if not isinstance(part, bytes):
-                try:
-                    part = part.encode("utf8")
-                except Exception as e:
-                    print(f"Failed to check if bytes: {e}")
-                    return
-            out.append(part)
-
-        return out

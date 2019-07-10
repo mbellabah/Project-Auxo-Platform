@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import binascii
 import os
+import json
 from random import randint
 
 import zmq
@@ -27,12 +28,11 @@ def dump(msg_or_socket):
     else:
         msg = msg_or_socket
     print("----------------------------------------")
-    print(f"DEBUG: DEBUG: Dump debug: {msg}")
     for part in msg:
         print("[%03d]" % len(part), end=' ')
         is_text = True
         try:
-            print(part, part.decode("utf8"))
+            print(part)
         except UnicodeDecodeError:
             print(r"0x%s" % (binascii.hexlify(part).decode('ascii')))
 
@@ -56,3 +56,31 @@ def zpipe(ctx):
     a.bind(iface)
     b.connect(iface)
     return a,b
+
+
+def ensure_is_bytes(msg):
+    out = []
+    for part in msg:
+        if not isinstance(part, bytes):
+            try:
+                part = part.encode("utf8")
+            except AttributeError:
+                # Clean the dict (our message structure
+                part = strip_of_bytes(part)
+                part = json.dumps(part).encode("utf8")
+            except Exception as e:
+                print(f"Failed to check if bytes: {e}")
+        out.append(part)
+    return out
+
+
+def strip_of_bytes(input_dict: dict):
+    for key in input_dict.keys():
+        if isinstance(input_dict[key], bytes):
+            input_dict[key] = input_dict[key].decode("utf8")
+        elif isinstance(input_dict[key], list):
+            out = []
+            for val in input_dict[key]:
+                out.append(val.decode("utf8"))
+            input_dict[key] = out
+    return input_dict
