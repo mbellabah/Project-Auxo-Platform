@@ -79,6 +79,8 @@ class MajorDomoBroker(object):
     def mediate(self):
         """ Main broker work happens here -- mediates between the client and the worker socket """
         while True:
+            all_worker_services = [worker.address for worker in self.workers.values()]   # FIXME: Remove
+            logging.info(f"DEBUG: Worker Addresses {all_worker_services}")       # FIXME: Remove
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
             except KeyboardInterrupt:
@@ -231,7 +233,7 @@ class MajorDomoBroker(object):
             self.heartbeat_at = time.time() + 1e-3*self.HEARTBEAT_INTERVAL
 
     def purge_workers(self):
-        """ Lopk for an kill expired workers, workers are oldest to most recent so stop at first alive worker """
+        """ Lopk for and kill any expired workers, workers are oldest to most recent so stop at first alive worker """
         while self.waiting:
             w = self.waiting[0]
             if w.expiry < time.time():

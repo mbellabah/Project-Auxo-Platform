@@ -93,8 +93,8 @@ def main():
         service = user_args[5]
 
     # Instantiate and dispatch the worker
-    worker = Agent(agent_name, broker_addr, port, verbose)
-    worker.run(service=service)
+    agent = Agent(agent_name, broker_addr, port, verbose)
+    agent.run(service=service)
 
 
 if __name__ == '__main__':
