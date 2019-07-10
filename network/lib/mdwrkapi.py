@@ -5,6 +5,8 @@ import zmq
 from zhelpers import dump, ensure_is_bytes
 import MDP
 
+# TODO: Implement ability for workers within agents to ask for the address of given neighbors
+
 
 class MajorDomoWorker(object):
     HEARTBEAT_LIVENESS = 3
