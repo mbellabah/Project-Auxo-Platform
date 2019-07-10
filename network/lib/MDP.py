@@ -12,3 +12,8 @@ W_HEARTBEAT = b"\004"
 W_DISCONNECT = b"\005"
 
 commands = [None, "READY", "REQUEST", "REPLY", "HEARTBEAT", "DISCONNECT"]
+
+
+# Services
+S_ECHO = "echo"
+S_NONE = "none"

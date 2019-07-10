@@ -79,7 +79,6 @@ class MajorDomoBroker(object):
     def mediate(self):
         """ Main broker work happens here -- mediates between the client and the worker socket """
         while True:
-            logging.info(f"MEDIATE_DEBUG: {self.services}")
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
             except KeyboardInterrupt:

@@ -46,6 +46,7 @@ def main():
     port = 5555
     service = "echo"
     client_name = None
+    print(user_args)
     if len(user_args) > 2:
         broker = user_args[2]
         port = user_args[3]
