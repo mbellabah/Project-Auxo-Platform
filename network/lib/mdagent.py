@@ -6,8 +6,6 @@ from typing import Dict
 
 # TODO: Interconnect the workers, perhaps use pub and sub -- better to receive the endpoints
 #       from the broker, and use that to connect with various workers on the same service!
-# TODO: Construct class abstractions for a worker
-
 # TODO: Interconnect the agents in layer 3
 
 
