@@ -2,7 +2,7 @@ import logging
 import time
 import zmq
 
-from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP
+from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name_ip
 import MDP
 
 # TODO: Implement ability for workers within agents to ask for the address of given neighbors
@@ -26,7 +26,7 @@ class MajorDomoWorker(object):
 
     reply_to = None       # Return address if any
 
-    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER):
+    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER, broker_port=5555):
         self.broker = broker
         self.service = service
         self.verbose = verbose
@@ -42,7 +42,9 @@ class MajorDomoWorker(object):
         self.poller = zmq.Poller()
 
         self.monitor: ZMQMonitor = None
-        self.endpoint = None
+
+        ip_addr = get_host_name_ip()
+        self.endpoint = f"tcp://{ip_addr}:{broker_port}"      # FIXME: May have to change the port number here
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
@@ -165,7 +167,6 @@ class MajorDomoWorker(object):
 
             # Send HEARTBEAT if it's time
             if time.time() > self.heartbeat_at:
-                self.endpoint = self.monitor.evt['endpoint']    # send endpoint on hearbeat
                 self.send_to_broker(MDP.W_HEARTBEAT, msg=self.endpoint)
                 self.heartbeat_at = time.time() + 1e-3*self.heartbeat
 

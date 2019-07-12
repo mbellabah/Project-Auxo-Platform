@@ -7,6 +7,7 @@ from __future__ import print_function
 import binascii
 import os
 import json
+import socket
 import threading
 from random import randint
 
@@ -91,9 +92,17 @@ def strip_of_bytes(input_dict: dict):
     return input_dict
 
 
-# Build the event map
-class EVENTS:
-    pass
+def get_host_name_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
+    except:
+        print("Error: Unable to get hostname and ip address:")
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
 
 
 EVENT_MAP = {}

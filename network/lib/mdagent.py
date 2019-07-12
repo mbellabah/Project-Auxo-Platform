@@ -37,7 +37,7 @@ class Agent(object):
         Creates a new worker for a given service as of now, 1 worker per service
         :return:
         """
-        worker = MajorDomoWorker(f"tcp://{self.broker}:{self.port}", service, self.verbose, worker_name)
+        worker = MajorDomoWorker(f"tcp://{self.broker}:{self.port}", service, self.verbose, worker_name, self.port)
         self.workers[service] = worker
         return worker
 
