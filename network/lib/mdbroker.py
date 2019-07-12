@@ -194,6 +194,7 @@ class MajorDomoBroker(object):
 
         worker = self.workers.get(identity)
         if worker is None:
+            print("DEBUG DEBUG require_worker", self.socket)
             worker_physical_address = self.socket.getsockopt(zmq.LAST_ENDPOINT)
             worker = Worker(identity, address, self.HEARTBEAT_EXPIRY, physical_address=worker_physical_address, agent_name=worker_agent_name)
             self.workers[identity] = worker
@@ -297,13 +298,15 @@ class MajorDomoBroker(object):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('port', default=55555, type=int, help='port to listen through')
-    parser.add_argument("-v", default=False, type=bool, help=' verbose output')
+    parser.add_argument('-port', default=5555, type=int, help='port to listen through')
+    parser.add_argument("-v", default=False, type=bool, help='verbose output')
 
     args = parser.parse_args()
 
     port = args.port
     verbose = args.v
+
+    print(args)
 
     """ Create and start new broker """
     broker = MajorDomoBroker(verbose)

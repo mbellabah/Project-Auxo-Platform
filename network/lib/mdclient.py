@@ -40,9 +40,9 @@ class Client(object):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('broker_ip', default='localhost', type=str, help='ip address of the broker')
-    parser.add_argument('port', default=55555, type=int, help='port to listen through')
-    parser.add_argument('service', default='echo', type=str, help='client service request')
+    parser.add_argument('-broker_ip', default='localhost', type=str, help='ip address of the broker')
+    parser.add_argument('-port', default=5555, type=int, help='port to listen through')
+    parser.add_argument('-service', default='echo', type=str, help='client service request')
     parser.add_argument('client_name', type=str, help='client\'s name')
     parser.add_argument("-v", default=False, type=bool, help=' verbose output')
 

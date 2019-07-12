@@ -78,13 +78,15 @@ class Agent(object):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('broker_ip', default='localhost', type=str, help='ip address of the broker')
-    parser.add_argument('port', default=55555, type=int, help='port to listen through')
-    parser.add_argument('service', default='echo', type=str, help='initial service for the agent')
+    parser.add_argument('-broker_ip', default='localhost', type=str, help='ip address of the broker')
+    parser.add_argument('-port', default=5555, type=int, help='port to listen through')
+    parser.add_argument('-service', default='echo', type=str, help='initial service for the agent')
     parser.add_argument('agent_name', type=str, help='agent\'s name')
     parser.add_argument("-v", default=False, type=bool, help=' verbose output')
 
     args = parser.parse_args()
+
+    print(args)
 
     verbose = args.v
     broker_addr = args.broker_ip
