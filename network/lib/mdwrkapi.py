@@ -2,7 +2,7 @@ import logging
 import time
 import zmq
 
-from zhelpers import dump, ensure_is_bytes
+from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP
 import MDP
 
 # TODO: Implement ability for workers within agents to ask for the address of given neighbors
@@ -41,11 +41,15 @@ class MajorDomoWorker(object):
         self.ctx = zmq.Context()
         self.poller = zmq.Poller()
 
-        self.physical_address = None
+        self.monitor: ZMQMonitor = None
+        self.endpoint = None
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
         self.reconnect_to_broker()
+
+        event_filter: str = 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCPETED]
+        self.monitor.run(event=event_filter)
 
     def reconnect_to_broker(self):
         """Connect or reconnect to broker"""
@@ -54,6 +58,10 @@ class MajorDomoWorker(object):
             self.worker.close()
 
         self.worker = self.ctx.socket(zmq.DEALER)
+
+        # Setup monitor
+        self.monitor: ZMQMonitor = ZMQMonitor(self.worker)
+
         self.worker.identity = self.worker_name
         self.worker.linger = 0
         self.worker.connect(self.broker)
@@ -136,9 +144,8 @@ class MajorDomoWorker(object):
 
                     return msg  # We have a request to process
                 elif command == MDP.W_HEARTBEAT:
-                    # Get the physical address from the heartbeat
-                    physical_address = msg.pop(0)
-                    self.physical_address = physical_address
+                    # do nothing on the heartbeat
+                    pass
                 elif command == MDP.W_DISCONNECT:
                     self.reconnect_to_broker()
                 else:
@@ -158,10 +165,12 @@ class MajorDomoWorker(object):
 
             # Send HEARTBEAT if it's time
             if time.time() > self.heartbeat_at:
-                self.send_to_broker(MDP.W_HEARTBEAT)
+                self.endpoint = self.monitor.evt['endpoint']    # send endpoint on hearbeat
+                self.send_to_broker(MDP.W_HEARTBEAT, msg=self.endpoint)
                 self.heartbeat_at = time.time() + 1e-3*self.heartbeat
 
         logging.warning("W: interrupt received, killing worker...")
+        self.monitor.stop()
         return None
 
     def destroy(self):

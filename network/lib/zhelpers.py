@@ -7,9 +7,14 @@ from __future__ import print_function
 import binascii
 import os
 import json
+import threading
 from random import randint
 
 import zmq
+from zmq.utils.monitor import recv_monitor_message
+
+
+line = lambda: print('-' * 40)
 
 
 def socket_set_hwm(socket, hwm=-1):
@@ -27,7 +32,7 @@ def dump(msg_or_socket):
         msg = msg_or_socket.recv_multipart()
     else:
         msg = msg_or_socket
-    print("----------------------------------------")
+    line()
     for part in msg:
         print("[%03d]" % len(part), end=' ')
         is_text = True
@@ -84,3 +89,57 @@ def strip_of_bytes(input_dict: dict):
                 out.append(val.decode("utf8"))
             input_dict[key] = out
     return input_dict
+
+
+# Build the event map
+class EVENTS:
+    pass
+
+
+EVENT_MAP = {}
+for name in dir(zmq):
+    if name.startswith('EVENT_'):
+        value = getattr(zmq, name)
+        EVENT_MAP[value] = name
+
+
+# MARK: Classes
+class ZMQMonitor(object):
+    evt: dict = None
+
+    def __init__(self, socket):
+        self.socket = socket
+        self.monitor = self.socket.get_monitor_socket()
+        self.t = None
+
+    @staticmethod
+    def event_monitor(monitor, event='ALL') -> dict:
+        while monitor.poll():
+            evt = recv_monitor_message(monitor)
+            evt['description'] = EVENT_MAP[evt['event']]
+            ZMQMonitor.evt = evt        # set class variable
+
+            if event == 'ALL' and evt['description'] not in ["NONE", "EVENT_CLOSED", "EVENT_CONNECT_DELAYED", "EVENT_CONNECT_RETRIED"]:
+                print("Event:", evt)
+            if event == evt['event']:
+                print("Event:", evt)
+
+            if evt['event'] == zmq.EVENT_MONITOR_STOPPED:
+                break
+        monitor.close()
+        print("\nEvent monitor thread done!")
+
+    def run(self, event):
+        line()
+        print("Starting socket monitor...")
+        line()
+        self.t = threading.Thread(target=self.event_monitor, args=(self.monitor, event,))
+        self.t.start()
+
+    def stop(self):
+        self.socket.disable_monitor()
+        self.monitor = None
+
+
+
+

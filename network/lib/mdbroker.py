@@ -10,11 +10,14 @@ import zmq
 
 # Local
 import MDP
-from zhelpers import dump, ensure_is_bytes
+from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP
 
+# NOTE: Make sure the broker is as stateless and lean as possible. The compute and much of the processing should be at
+#       at the edge, the broker is simply a proxy device that is just 'there'
 # TODO: Connect this platform to the GUI, allow a spot to enter text
 #       For the GUI, implement a separate screen (navigate via menu or tabs?) that allows one to see the broker
 #       interface!
+# TODO: Replace message frames [] with some base message class and its children
 
 
 class Service(object):
@@ -36,12 +39,12 @@ class Worker(object):
     service = None      # owning service if known
     expiry = None       # expires at this point, unless a heartbeat comes through
 
-    def __init__(self, identity, address, lifetime, physical_address, agent_name):
+    def __init__(self, identity, address, lifetime, endpoint, agent_name):
         self.identity = identity
         self.agent_name = agent_name
         self.address = address
         self.expiry = time.time() + 1e-3*lifetime
-        self.physical_address = physical_address
+        self.endpoint = endpoint
 
 
 class MajorDomoBroker(object):
@@ -75,17 +78,27 @@ class MajorDomoBroker(object):
         self.socket.linger = 0
         self.poller = zmq.Poller()
         self.poller.register(self.socket, zmq.POLLIN)
-        self.physical_addresses: dict = {}      # stores all the physical locations of the workers as seen from broker
+
+        self.monitor: ZMQMonitor = ZMQMonitor(self.socket)
+
+        self.worker_endpoints: dict = {}      # stores all the physical ip of the workers as seen from broker
+
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
     def mediate(self):
         """ Main broker work happens here -- mediates between the client and the worker socket """
+
+        # Start the socket monitor
+        event_filter: str = 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCEPTED]
+        self.monitor.run(event=event_filter)
+
         while True:
-            print("DEBUG DEBUG - physical", self.physical_addresses)          # FIXME: Remove
+            print("DEBUG DEBUG - worker_endpoints", self.worker_endpoints)          # FIXME: Remove
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
             except KeyboardInterrupt:
                 break
+
             if items:
                 msg = self.socket.recv_multipart()
                 if self.verbose:
@@ -136,7 +149,7 @@ class MajorDomoBroker(object):
         worker_ready = hexlify(sender) in self.workers
         worker = self.require_worker(sender)
 
-        if MDP.W_READY == command:
+        if command == MDP.W_READY:
             assert len(msg) >= 1
             service = msg.pop(0)
             if worker_ready or service.startswith(self.INTERNAL_SERVICE_PREFIX):
@@ -146,11 +159,11 @@ class MajorDomoBroker(object):
                 worker.service = self.require_service(service)
                 self.worker_waiting(worker)
 
-        elif MDP.W_REPLY == command:
+        elif command == MDP.W_REPLY:
             if worker_ready:
                 # Remove and save client return envelope and insert the protocol header and service name, then rewrap
                 client = msg.pop(0)
-                empty = msg.pop(0)
+                _ = msg.pop(0)
 
                 msg = [client, b"", MDP.C_CLIENT, worker.service.name] + msg
                 msg = ensure_is_bytes(msg)
@@ -160,13 +173,16 @@ class MajorDomoBroker(object):
             else:
                 self.delete_worker(worker, True)
 
-        elif MDP.W_HEARTBEAT == command:
+        elif command == MDP.W_HEARTBEAT:
             if worker_ready:
                 worker.expiry = time.time() + 1e-3*self.HEARTBEAT_EXPIRY
+                endpoint = msg.pop(0)
+                worker.endpoint = endpoint
+                self.worker_endpoints[worker.agent_name] = endpoint
             else:
                 self.delete_worker(worker, True)
 
-        elif MDP.W_DISCONNECT == command:
+        elif command == MDP.W_DISCONNECT:
             self.delete_worker(worker, False)
 
         else:
@@ -175,7 +191,7 @@ class MajorDomoBroker(object):
 
     def delete_worker(self, worker, disconnect):
         """ Deletes the worker from all data structures and deletes worker """
-        logging.info("DELETE_WORKER_DEBUG: Delete worker")
+        logging.info("Deleting worker")
         assert worker is not None
         if disconnect:
             self.send_to_worker(worker, MDP.W_DISCONNECT, None, None)
@@ -184,7 +200,7 @@ class MajorDomoBroker(object):
             worker.service.waiting.remove(worker)
 
         self.workers.pop(worker.identity)
-        self.physical_addresses.pop(worker.agent_name)
+        self.worker_endpoints.pop(worker.agent_name)
 
     def require_worker(self, address):
         """ Finds the worker (creates if necessary) """
@@ -194,11 +210,9 @@ class MajorDomoBroker(object):
 
         worker = self.workers.get(identity)
         if worker is None:
-            print("DEBUG DEBUG require_worker", self.socket)
-            worker_physical_address = self.socket.getsockopt(zmq.LAST_ENDPOINT)
-            worker = Worker(identity, address, self.HEARTBEAT_EXPIRY, physical_address=worker_physical_address, agent_name=worker_agent_name)
+            worker = Worker(identity, address, self.HEARTBEAT_EXPIRY, 'unknown', worker_agent_name)
+
             self.workers[identity] = worker
-            self.physical_addresses[worker_agent_name] = worker_physical_address
             if self.verbose:
                 logging.info(f"I: registering new worker:{unhexlify(identity)}")
 
@@ -237,9 +251,8 @@ class MajorDomoBroker(object):
         """ Send heartbeats to idle worker if it's time """
         if time.time() > self.heartbeat_at:
             for worker in self.waiting:
-                # TODO: Send the worker's physical address here??
-                # worker.physical_address is where the worker is connecting from as seen by the broker
-                self.send_to_worker(worker, MDP.W_HEARTBEAT, None, msg=worker.physical_address)
+                # worker.endpoint is where the worker is connecting from as seen by the broker
+                self.send_to_worker(worker, MDP.W_HEARTBEAT, None, msg=worker.endpoint)
 
             self.heartbeat_at = time.time() + 1e-3*self.HEARTBEAT_INTERVAL
 
