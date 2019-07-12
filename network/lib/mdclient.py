@@ -1,6 +1,7 @@
 import sys
 from mdcliapi import MajorDomoClient
 
+import argparse
 
 class Client(object):
     def __init__(self, client_name, broker, port, verbose, service):
@@ -38,19 +39,20 @@ class Client(object):
 
 
 def main():
-    user_args = sys.argv
-    verbose = '-v' in user_args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('broker_ip', default='localhost', type=str, help='ip address of the broker')
+    parser.add_argument('port', default=55555, type=int, help='port to listen through')
+    parser.add_argument('service', default='echo', type=str, help='client service request')
+    parser.add_argument('client_name', type=str, help='client\'s name')
+    parser.add_argument("-v", default=False, type=bool, help=' verbose output')
 
-    # Args: -v *verbose* host port client_name
-    broker = "localhost"      # ip address of the broker
-    port = 5555
-    service = "echo"
-    client_name = None
-    if len(user_args) > 2:
-        broker = user_args[2]
-        port = user_args[3]
-        client_name = user_args[4]
-        service = user_args[5]
+    args = parser.parse_args()
+
+    verbose = args.v
+    broker = args.broker_ip
+    port = args.port
+    client_name = args.client_name
+    service = args.service
 
     client = Client(client_name, broker, port, verbose, service)
     client.run(service)

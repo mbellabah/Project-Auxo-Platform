@@ -2,6 +2,7 @@ import sys
 import MDP
 from mdwrkapi import MajorDomoWorker
 
+import argparse
 from typing import Dict
 
 # TODO: Interconnect the workers, perhaps use pub and sub -- better to receive the endpoints
@@ -76,19 +77,20 @@ class Agent(object):
 
 
 def main():
-    user_args = sys.argv
-    verbose = '-v' in user_args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('broker_ip', default='localhost', type=str, help='ip address of the broker')
+    parser.add_argument('port', default=55555, type=int, help='port to listen through')
+    parser.add_argument('service', default='echo', type=str, help='initial service for the agent')
+    parser.add_argument('agent_name', type=str, help='agent\'s name')
+    parser.add_argument("-v", default=False, type=bool, help=' verbose output')
 
-    # Args: -v *verbose* host port worker_name
-    broker_addr = "localhost"      # Ip address of the broker
-    port = 5555
-    agent_name = 'A?'
-    service = "echo"
-    if len(user_args) > 2:
-        broker_addr = user_args[2]
-        port = user_args[3]
-        agent_name = user_args[4]
-        service = user_args[5]
+    args = parser.parse_args()
+
+    verbose = args.v
+    broker_addr = args.broker_ip
+    port = args.port
+    agent_name = args.agent_name
+    service = args.service
 
     # Instantiate and dispatch the worker
     agent = Agent(agent_name, broker_addr, port, verbose)

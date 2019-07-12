@@ -31,10 +31,18 @@ class MajorDomoWorker(object):
         self.service = service
         self.verbose = verbose
         if not isinstance(worker_name, bytes):
+            agent_name = worker_name.split(".")[0]
+            agent_name = agent_name.encode("utf8")
             worker_name = worker_name.encode("utf8")
-        self.worker_name = worker_name
+        else:
+            agent_name = worker_name.split(b".")[0]
+        self.worker_name = worker_name      # of format A01.service
+        self.agent_name = agent_name        # of format A01
         self.ctx = zmq.Context()
         self.poller = zmq.Poller()
+
+        self.physical_address = None
+
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
         self.reconnect_to_broker()
@@ -46,6 +54,7 @@ class MajorDomoWorker(object):
             self.worker.close()
 
         self.worker = self.ctx.socket(zmq.DEALER)
+        self.worker.identity = self.worker_name
         self.worker.linger = 0
         self.worker.connect(self.broker)
         self.poller.register(self.worker, zmq.POLLIN)
@@ -66,12 +75,12 @@ class MajorDomoWorker(object):
         if msg is None:
             msg = []
         elif not isinstance(msg, list):
-            msg = [msg.encode("utf8")]
+            msg = [msg]
 
         if option:
-            msg = [option.encode("utf8")] + msg
+            msg = [option] + msg
 
-        msg = [b'', MDP.W_WORKER, self.worker_name, command] + msg
+        msg = ['', MDP.W_WORKER, command] + msg
         msg = ensure_is_bytes(msg)     # ensure that the message is only bytes
 
         if self.verbose:
@@ -127,8 +136,9 @@ class MajorDomoWorker(object):
 
                     return msg  # We have a request to process
                 elif command == MDP.W_HEARTBEAT:
-                    # Do nothing for heartbeats
-                    pass
+                    # Get the physical address from the heartbeat
+                    physical_address = msg.pop(0)
+                    self.physical_address = physical_address
                 elif command == MDP.W_DISCONNECT:
                     self.reconnect_to_broker()
                 else:

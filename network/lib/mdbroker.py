@@ -2,8 +2,9 @@ import logging
 import sys
 import time
 import json
+import argparse
 from collections import deque
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 
 import zmq
 
@@ -35,10 +36,12 @@ class Worker(object):
     service = None      # owning service if known
     expiry = None       # expires at this point, unless a heartbeat comes through
 
-    def __init__(self, identity, address, lifetime):
+    def __init__(self, identity, address, lifetime, physical_address, agent_name):
         self.identity = identity
+        self.agent_name = agent_name
         self.address = address
         self.expiry = time.time() + 1e-3*lifetime
+        self.physical_address = physical_address
 
 
 class MajorDomoBroker(object):
@@ -72,12 +75,13 @@ class MajorDomoBroker(object):
         self.socket.linger = 0
         self.poller = zmq.Poller()
         self.poller.register(self.socket, zmq.POLLIN)
-
+        self.physical_addresses: dict = {}      # stores all the physical locations of the workers as seen from broker
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
     def mediate(self):
         """ Main broker work happens here -- mediates between the client and the worker socket """
         while True:
+            print("DEBUG DEBUG - physical", self.physical_addresses)          # FIXME: Remove
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
             except KeyboardInterrupt:
@@ -126,7 +130,7 @@ class MajorDomoBroker(object):
     def process_worker(self, sender, msg):
         """ Process message sent to us by a worker """
         assert len(msg) >= 1        # at least, command
-        worker_name = msg.pop(0)
+        # worker_name = msg.pop(0)      # FIXME: Remove
         command = msg.pop(0)
 
         worker_ready = hexlify(sender) in self.workers
@@ -178,18 +182,24 @@ class MajorDomoBroker(object):
 
         if worker.service is not None:
             worker.service.waiting.remove(worker)
+
         self.workers.pop(worker.identity)
+        self.physical_addresses.pop(worker.agent_name)
 
     def require_worker(self, address):
         """ Finds the worker (creates if necessary) """
         assert address is not None
         identity = hexlify(address)
+        worker_agent_name: bytes = unhexlify(identity).split(b".")[0]  # format of A01
+
         worker = self.workers.get(identity)
         if worker is None:
-            worker = Worker(identity, address, self.HEARTBEAT_EXPIRY)
+            worker_physical_address = self.socket.getsockopt(zmq.LAST_ENDPOINT)
+            worker = Worker(identity, address, self.HEARTBEAT_EXPIRY, physical_address=worker_physical_address, agent_name=worker_agent_name)
             self.workers[identity] = worker
+            self.physical_addresses[worker_agent_name] = worker_physical_address
             if self.verbose:
-                logging.info(f"I: registering new worker:{identity}")
+                logging.info(f"I: registering new worker:{unhexlify(identity)}")
 
         return worker
 
@@ -218,6 +228,7 @@ class MajorDomoBroker(object):
 
         # Insert the protocol header and service name after the routing envelope
         msg = msg[:2] + [MDP.C_CLIENT, service] + msg[2:]
+        msg = msg[:2] + [MDP.C_CLIENT, service] + msg[2:]
         msg = ensure_is_bytes(msg)
         self.socket.send_multipart(msg)
 
@@ -225,7 +236,9 @@ class MajorDomoBroker(object):
         """ Send heartbeats to idle worker if it's time """
         if time.time() > self.heartbeat_at:
             for worker in self.waiting:
-                self.send_to_worker(worker, MDP.W_HEARTBEAT, None, None)
+                # TODO: Send the worker's physical address here??
+                # worker.physical_address is where the worker is connecting from as seen by the broker
+                self.send_to_worker(worker, MDP.W_HEARTBEAT, None, msg=worker.physical_address)
 
             self.heartbeat_at = time.time() + 1e-3*self.HEARTBEAT_INTERVAL
 
@@ -283,10 +296,18 @@ class MajorDomoBroker(object):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('port', default=55555, type=int, help='port to listen through')
+    parser.add_argument("-v", default=False, type=bool, help=' verbose output')
+
+    args = parser.parse_args()
+
+    port = args.port
+    verbose = args.v
+
     """ Create and start new broker """
-    verbose: bool = '-v' in sys.argv
     broker = MajorDomoBroker(verbose)
-    broker.bind("tcp://*:5555")
+    broker.bind(f"tcp://*:{port}")
     broker.mediate()
 
 
