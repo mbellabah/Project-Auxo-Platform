@@ -5,7 +5,7 @@ import zmq
 from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name_ip
 import MDP
 
-# TODO: Implement ability for workers within agents to ask for the address of given neighbors
+# TODO: Implement ability for workers within agents to ask for the address of given neighbors!
 
 
 class MajorDomoWorker(object):
@@ -44,7 +44,8 @@ class MajorDomoWorker(object):
         self.monitor: ZMQMonitor = None
 
         ip_addr = get_host_name_ip()
-        self.endpoint = f"tcp://{ip_addr}:{broker_port}"      # FIXME: May have to change the port number here
+        self.endpoint = f"tcp://{ip_addr}:{broker_port}".encode('utf8')     # FIXME: Change the port number here?
+        self.peers = None       # stores the locations of peers of the given service -- assuming service is idempotent
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
@@ -143,8 +144,9 @@ class MajorDomoWorker(object):
                     # pop empty
                     empty = msg.pop(0)
                     assert empty == b''
-
-                    return msg  # We have a request to process
+                    actual_msg = msg.pop(0)
+                    self.peers = msg[0]
+                    return actual_msg  # We have a request to process
                 elif command == MDP.W_HEARTBEAT:
                     # do nothing on the heartbeat
                     pass

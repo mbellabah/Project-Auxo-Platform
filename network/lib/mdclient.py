@@ -1,7 +1,9 @@
 import sys
 from mdcliapi import MajorDomoClient
 
+import time
 import argparse
+
 
 class Client(object):
     def __init__(self, client_name, broker, port, verbose, service):
@@ -55,6 +57,7 @@ def main():
     service = args.service
 
     client = Client(client_name, broker, port, verbose, service)
+    time.sleep(2)
     client.run(service)
 
 

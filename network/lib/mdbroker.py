@@ -3,7 +3,7 @@ import sys
 import time
 import json
 import argparse
-from collections import deque
+from collections import deque, defaultdict
 from binascii import hexlify, unhexlify
 
 import zmq
@@ -81,7 +81,8 @@ class MajorDomoBroker(object):
 
         self.monitor: ZMQMonitor = ZMQMonitor(self.socket)
 
-        self.worker_endpoints: dict = {}      # stores all the physical ip of the workers as seen from broker
+        # Arranged by service, then ip
+        self.worker_endpoints = defaultdict(dict)      # stores all the physical ip of the workers as seen from broker
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
@@ -134,7 +135,7 @@ class MajorDomoBroker(object):
         service = msg.pop(0)
 
         # Set reply return address to client sender
-        msg = [sender, ""] + msg
+        msg = [sender, ""] + msg + [self.worker_endpoints[service]]
         if service.startswith(self.INTERNAL_SERVICE_PREFIX):
             self.service_internal(service, msg)
         else:
@@ -178,7 +179,7 @@ class MajorDomoBroker(object):
                 worker.expiry = time.time() + 1e-3*self.HEARTBEAT_EXPIRY
                 endpoint = msg.pop(0)
                 worker.endpoint = endpoint
-                self.worker_endpoints[worker.agent_name] = endpoint
+                self.worker_endpoints[worker.service.name][worker.agent_name] = endpoint
             else:
                 self.delete_worker(worker, True)
 
@@ -200,13 +201,13 @@ class MajorDomoBroker(object):
             worker.service.waiting.remove(worker)
 
         self.workers.pop(worker.identity)
-        self.worker_endpoints.pop(worker.agent_name)
+        self.worker_endpoints[worker.service.name].pop(worker.agent_name)
 
     def require_worker(self, address):
         """ Finds the worker (creates if necessary) """
         assert address is not None
         identity = hexlify(address)
-        worker_agent_name: bytes = unhexlify(identity).split(b".")[0]  # format of A01
+        worker_agent_name, worker_service = unhexlify(identity).split(b".")  # format of A01
 
         worker = self.workers.get(identity)
         if worker is None:

@@ -82,6 +82,10 @@ def ensure_is_bytes(msg):
 
 def strip_of_bytes(input_dict: dict):
     for key in input_dict.keys():
+        if isinstance(key, bytes):
+            value = input_dict.pop(key)
+            key = key.decode("utf8")        # change to str
+            input_dict[key] = value
         if isinstance(input_dict[key], bytes):
             input_dict[key] = input_dict[key].decode("utf8")
         elif isinstance(input_dict[key], list):
