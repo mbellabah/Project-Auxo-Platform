@@ -2,6 +2,7 @@ import sys
 from mdcliapi import MajorDomoClient
 
 import time
+import json
 import argparse
 
 
@@ -15,9 +16,9 @@ class Client(object):
 
         self.client = MajorDomoClient(f"tcp://{self.broker}:{self.port}", verbose, client_name=self.client_name)
 
-    def run(self, service="echo"):
-        requests = 1
-        for i in range(requests):
+    def run(self, service: str = "echo"):
+        num_requests: int = 2
+        for i in range(num_requests):
             request = "Hello World: " + str(i)
             try:
                 self.client.send(service, request)
@@ -26,9 +27,13 @@ class Client(object):
                 return
 
         count = 0
-        while count < requests:
+        actual_reply = 'null'
+        while count < num_requests:
             try:
                 reply = self.client.recv()
+                # Frame 0: actual_reply
+                # Frame 1: worker_origin
+                actual_reply = json.loads(reply[0])
             except KeyboardInterrupt:
                 break
             else:
@@ -38,6 +43,7 @@ class Client(object):
             count += 1
 
         print(f"{count} requests/replies processed")
+        print(f"most recent reply: {actual_reply}")
 
 
 def main():
@@ -57,7 +63,7 @@ def main():
     service = args.service
 
     client = Client(client_name, broker, port, verbose, service)
-    time.sleep(2)
+    time.sleep(2)       # hardcoded delay
     client.run(service)
 
 

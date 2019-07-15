@@ -4,6 +4,7 @@ from queue import Queue
 from typing import Dict
 
 import zmq
+from zhelpers import line
 
 # TODO: Fix the slow joiner issue, where the first message appears to be dropped
 
@@ -30,7 +31,12 @@ class Peer(object):
         self.poller.register(self.send_socket, zmq.POLLIN)
 
         self.process_queue()
+
+        line()
         print(f"Initialized {self.peer_name}")
+        print(f"{self.peer_name} has peers: {self.peers}")
+        line()
+        line()
 
     def tie_to_peers(self):
         # Tie this peer to all of the peers inside its peers dict

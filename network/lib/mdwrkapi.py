@@ -32,7 +32,7 @@ class MajorDomoWorker(object):
 
     def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER, broker_port=5555):
         self.broker = broker
-        self.service = service
+        self.service: str = service
         self.verbose = verbose
         if not isinstance(worker_name, bytes):
             agent_name = worker_name.split(".")[0]
@@ -51,17 +51,11 @@ class MajorDomoWorker(object):
         # Inter-worker peer handling
         ip_addr = get_host_name_ip()
         self.endpoint: str = f"tcp://{ip_addr}:{broker_port}"   # FIXME: Change the port number here?
+
         self.peers_endpoints: Dict[str, str] = {}    # tcp endpoints of peers for the given service
-        self.peer = None
+        # Note that self.peer has not been connected to its peers
+        self.peer_port: PeerPort = None
         self.peer_request_queue: Queue = Queue()
-        if self.peers_endpoints:
-            self.peer: PeerPort = PeerPort(
-                endpoint=self.endpoint,
-                peer_name=self.worker_name.decode('utf8')+'.peer',
-                peers=self.peers_endpoints,
-                verbose=True
-            )
-            # Note that self.peer has not been connected to its peers
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
@@ -188,7 +182,19 @@ class MajorDomoWorker(object):
             assert empty == b''
             actual_msg = msg.pop(0)
             peers_endpoints: Dict[bytes, bytes] = json.loads(msg[0])
-            self.peers_endpoints: Dict[str, str] = strip_of_bytes(peers_endpoints)
+            peers_endpoints: Dict[str, str] = strip_of_bytes(peers_endpoints)
+
+            peers_endpoints.pop(self.agent_name.decode('utf8'))      # pop own endpoint
+            self.peers_endpoints: Dict[str, str] = peers_endpoints
+
+            # Construct the peer port for the broker's request
+            if self.peers_endpoints:
+                self.peer_port: PeerPort = PeerPort(
+                    endpoint=self.endpoint,
+                    peer_name=self.worker_name.decode('utf8') + '.peer',
+                    peers=self.peers_endpoints,
+                    verbose=True
+                )
 
             return actual_msg  # We have a request to process
 

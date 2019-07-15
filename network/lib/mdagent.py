@@ -51,6 +51,8 @@ class Agent(object):
         worker.destroy()
 
     def run(self, service, **kwargs):
+        assert self.services, "No services exist!"
+
         # run the service function
         try:
             service_exe: se.ServiceExeBase = self.services[service]
@@ -59,7 +61,7 @@ class Agent(object):
             service_exe.run(worker)
 
         except KeyError as e:
-            print(f"{service} behavior is not implemented: {e}")
+            print(f"{service} behavior is not implemented: {repr(e)}")
 
         except KeyboardInterrupt:
             print(f"Killing {service} worker")
