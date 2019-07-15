@@ -3,6 +3,7 @@ import time
 import zmq
 
 from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name_ip
+from mdpeer import Peer
 import MDP
 
 # TODO: Implement ability for workers within agents to ask for the address of given neighbors!
@@ -36,21 +37,27 @@ class MajorDomoWorker(object):
             worker_name = worker_name.encode("utf8")
         else:
             agent_name = worker_name.split(b".")[0]
-        self.worker_name = worker_name      # of format A01.service
-        self.agent_name = agent_name        # of format A01
+        self.worker_name: bytes = worker_name      # of format A01.service
+        self.agent_name: bytes = agent_name        # of format A01
+
         self.ctx = zmq.Context()
         self.poller = zmq.Poller()
 
         self.monitor: ZMQMonitor = None
 
+        # Inter-worker peer handling
         ip_addr = get_host_name_ip()
         self.endpoint = f"tcp://{ip_addr}:{broker_port}".encode('utf8')     # FIXME: Change the port number here?
-        self.peers = None    # stores the tcp endpoints of peers for the given service -- assuming service is idempotent
+        self.peers_endpoints: dict = {}    # tcp endpoints of peers for the given service
+        self.peer: Peer = None
+        if self.peers_endpoints:
+            self.peer = None
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
         self.reconnect_to_broker()
 
+        # Monitoring
         event_filter: str = 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCPETED]
         self.monitor.run(event=event_filter)
 
@@ -145,13 +152,16 @@ class MajorDomoWorker(object):
                     empty = msg.pop(0)
                     assert empty == b''
                     actual_msg = msg.pop(0)
-                    self.peers = msg[0]
+                    self.peers_endpoints = msg[0]
                     return actual_msg  # We have a request to process
+
                 elif command == MDP.W_HEARTBEAT:
                     # do nothing on the heartbeat
                     pass
+
                 elif command == MDP.W_DISCONNECT:
                     self.reconnect_to_broker()
+
                 else:
                     logging.error("E: invalid input message: ")
                     dump(msg)

@@ -103,7 +103,7 @@ class Peer(object):
         :return:
         """
         try:
-            self.send_socket.bind(self.endpoint)        # FIXME: I'm sure there is an issue here!!
+            self.send_socket.bind(self.endpoint)
         except zmq.error.ZMQError:
             pass
 
@@ -123,4 +123,5 @@ class Peer(object):
 
     def stop(self):
         """ Destroy context and close the socket """
+        # FIXME: Destroy the peer object/port cleanly
         pass

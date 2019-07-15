@@ -61,7 +61,7 @@ def zpipe(ctx):
     iface = "inproc://%s" % binascii.hexlify(os.urandom(8))
     a.bind(iface)
     b.connect(iface)
-    return a,b
+    return a, b
 
 
 def ensure_is_bytes(msg):
@@ -82,17 +82,21 @@ def ensure_is_bytes(msg):
 
 def strip_of_bytes(input_dict: dict):
     for key in input_dict.keys():
+
         if isinstance(key, bytes):
             value = input_dict.pop(key)
             key = key.decode("utf8")        # change to str
             input_dict[key] = value
+
         if isinstance(input_dict[key], bytes):
             input_dict[key] = input_dict[key].decode("utf8")
+
         elif isinstance(input_dict[key], list):
             out = []
             for val in input_dict[key]:
                 out.append(val.decode("utf8"))
             input_dict[key] = out
+
     return input_dict
 
 
@@ -152,7 +156,4 @@ class ZMQMonitor(object):
     def stop(self):
         self.socket.disable_monitor()
         self.monitor = None
-
-
-
 
