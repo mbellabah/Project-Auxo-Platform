@@ -1,9 +1,12 @@
-import logging
-import time
 import zmq
+import time
+import json
+import logging
+from queue import Queue
+from typing import Dict
 
-from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name_ip
-from mdpeer import Peer
+from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name_ip, strip_of_bytes
+from mdpeer import PeerPort
 import MDP
 
 # TODO: Implement ability for workers within agents to ask for the address of given neighbors!
@@ -47,18 +50,25 @@ class MajorDomoWorker(object):
 
         # Inter-worker peer handling
         ip_addr = get_host_name_ip()
-        self.endpoint = f"tcp://{ip_addr}:{broker_port}".encode('utf8')     # FIXME: Change the port number here?
-        self.peers_endpoints: dict = {}    # tcp endpoints of peers for the given service
-        self.peer: Peer = None
+        self.endpoint: str = f"tcp://{ip_addr}:{broker_port}"   # FIXME: Change the port number here?
+        self.peers_endpoints: Dict[str, str] = {}    # tcp endpoints of peers for the given service
+        self.peer = None
+        self.peer_request_queue: Queue = Queue()
         if self.peers_endpoints:
-            self.peer = None
+            self.peer: PeerPort = PeerPort(
+                endpoint=self.endpoint,
+                peer_name=self.worker_name.decode('utf8')+'.peer',
+                peers=self.peers_endpoints,
+                verbose=True
+            )
+            # Note that self.peer has not been connected to its peers
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
         self.reconnect_to_broker()
 
         # Monitoring
-        event_filter: str = 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCPETED]
+        event_filter: str = 'NONE'     # 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCPETED]
         self.monitor.run(event=event_filter)
 
     def reconnect_to_broker(self):
@@ -142,29 +152,11 @@ class MajorDomoWorker(object):
                 assert empty == b''
                 header = msg.pop(0)
                 assert header == MDP.W_WORKER
-
                 command = msg.pop(0)
-                if command == MDP.W_REQUEST:
-                    # We should pop and save as many addresses as there are
-                    # up to a null part, but for now, just save one...
-                    self.reply_to = msg.pop(0)
-                    # pop empty
-                    empty = msg.pop(0)
-                    assert empty == b''
-                    actual_msg = msg.pop(0)
-                    self.peers_endpoints = msg[0]
-                    return actual_msg  # We have a request to process
 
-                elif command == MDP.W_HEARTBEAT:
-                    # do nothing on the heartbeat
-                    pass
-
-                elif command == MDP.W_DISCONNECT:
-                    self.reconnect_to_broker()
-
-                else:
-                    logging.error("E: invalid input message: ")
-                    dump(msg)
+                out = self.command_handler(command, msg)
+                if out:         # request to process?
+                    return out
 
             else:
                 self.liveness -= 1
@@ -185,6 +177,31 @@ class MajorDomoWorker(object):
         logging.warning("W: interrupt received, killing worker...")
         self.monitor.stop()
         return None
+
+    def command_handler(self, command: bytes, msg: list):
+        if command == MDP.W_REQUEST:
+            # We should pop and save as many addresses as there are
+            # up to a null part, but for now, just save one...
+            self.reply_to = msg.pop(0)
+            # pop empty
+            empty = msg.pop(0)
+            assert empty == b''
+            actual_msg = msg.pop(0)
+            peers_endpoints: Dict[bytes, bytes] = json.loads(msg[0])
+            self.peers_endpoints: Dict[str, str] = strip_of_bytes(peers_endpoints)
+
+            return actual_msg  # We have a request to process
+
+        elif command == MDP.W_HEARTBEAT:
+            # do nothing on the heartbeat
+            pass
+
+        elif command == MDP.W_DISCONNECT:
+            self.reconnect_to_broker()
+
+        else:
+            logging.error("E: invalid input message: ")
+            dump(msg)
 
     def destroy(self):
         self.ctx.destroy(0)

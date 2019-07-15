@@ -16,7 +16,7 @@ class Client(object):
         self.client = MajorDomoClient(f"tcp://{self.broker}:{self.port}", verbose, client_name=self.client_name)
 
     def run(self, service="echo"):
-        requests = 10
+        requests = 1
         for i in range(requests):
             request = "Hello World: " + str(i)
             try:

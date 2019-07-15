@@ -11,7 +11,7 @@ import zmq
 class Peer(object):
     REQUEST_TIMEOUT = 2500      # 2.5 seconds
 
-    def __init__(self, endpoint, peer_name: str, peers: dict, verbose=True):
+    def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         self.endpoint = endpoint
         self.peer_name: bytes = peer_name.encode("utf8")
         self.peers: Dict[bytes, str] = peers
@@ -29,12 +29,14 @@ class Peer(object):
         self.poller.register(self.recv_socket, zmq.POLLIN)
         self.poller.register(self.send_socket, zmq.POLLIN)
 
+        self.process_queue()
+        print(f"Initialized {self.peer_name}")
+
+    def tie_to_peers(self):
+        # Tie this peer to all of the peers inside its peers dict
         # Connect recv socket to peers? For now internal process
         for peer_endpoint in self.peers.values():
             self.recv(peer_endpoint)
-
-        self.process_queue()
-        print(f"Initialized {self.peer_name}")
 
     def process_queue_thread(self):
         """ Process the entry in the queue """
@@ -125,3 +127,21 @@ class Peer(object):
         """ Destroy context and close the socket """
         # FIXME: Destroy the peer object/port cleanly
         pass
+
+
+class PeerPort(Peer):
+    def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
+        super(PeerPort, self).__init__(endpoint, peer_name, peers, verbose)
+
+    # override process_queue
+    def process_queue_thread(self):
+        # Only for debugging
+        while True:
+            if not self.request_queue.empty():
+                if self.verbose:
+                    print(self.peer_name, "Queue:", list(self.request_queue.queue))
+
+            time.sleep(1)
+
+    def get_request_queue(self) -> Queue:
+        return self.request_queue

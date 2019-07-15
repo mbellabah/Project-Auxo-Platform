@@ -1,9 +1,12 @@
 import sys
-import MDP
-from mdwrkapi import MajorDomoWorker
-
+import time
 import argparse
 from typing import Dict
+
+import MDP
+import service_exe as se
+from mdwrkapi import MajorDomoWorker
+
 
 # TODO: Interconnect the workers, perhaps use pub and sub -- better to receive the endpoints
 #       from the broker, and use that to connect with various workers on the same service!
@@ -25,9 +28,9 @@ class Agent(object):
         self.verbose = verbose
         self.agent_type = MDP.W_WORKER
 
+        # Define the services here!
         self.services = {
-            MDP.S_ECHO: self.service_echo,
-            MDP.S_NONE: self.service_none
+            MDP.S_ECHO: se.ServiceExeEcho(agent_name=self.agent_name)
         }
 
         self.workers: Dict[str, MajorDomoWorker] = {}
@@ -47,30 +50,17 @@ class Agent(object):
         assert worker is not None
         worker.destroy()
 
-    def service_echo(self):
-        worker = self.create_new_worker(worker_name=self.agent_name+"."+MDP.S_ECHO, service=MDP.S_ECHO)
-        reply = None
-        while True:
-            request = worker.recv(reply)
-            if request is None:
-                break
-            reply = {'payload': request, 'origin': self.agent_name}   # simple echo
-
-    def service_none(self):
-        worker = self.create_new_worker(worker_name=self.agent_name+"."+MDP.S_NONE, service=MDP.S_NONE)
-        reply = None
-        while True:
-            request = worker.recv(reply)
-            if request is None:
-                break
-            reply = {'payload': None, 'origin': self.agent_name}
-
-    def run(self, service):
+    def run(self, service, **kwargs):
         # run the service function
         try:
-            self.services[service]()
+            service_exe: se.ServiceExeBase = self.services[service]
+            worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
+            # run
+            service_exe.run(worker)
+
         except KeyError as e:
             print(f"{service} behavior is not implemented: {e}")
+
         except KeyboardInterrupt:
             print(f"Killing {service} worker")
             self.delete_worker(service)

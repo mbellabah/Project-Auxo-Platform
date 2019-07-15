@@ -5,15 +5,15 @@ import MDP
 
 
 class ServiceExeBase(metaclass=ABCMeta):
-    def __init__(self, service_name: str = MDP.S_NONE, worker=None):
+    def __init__(self, service_name: str = MDP.S_NONE, agent_name: str = ''):
         self.service_name = service_name
-        self.worker = worker
-        self.worker_name: str = self.worker.worker_name.decode('utf8')      # owns this service
+        self.worker = None
+        self.worker_name: str = agent_name + '.' + self.service_name
 
-    def run(self):
+    def run(self, worker):
         reply = None
         while True:
-            request = self.worker.recv(reply)
+            request = worker.recv(reply)
             if request is None:
                 break
 
@@ -25,8 +25,8 @@ class ServiceExeBase(metaclass=ABCMeta):
 
 
 class ServiceExeEcho(ServiceExeBase):
-    def __init__(self, service_name: str = MDP.S_ECHO, worker=None):
-        super(ServiceExeEcho, self).__init__(service_name, worker)
+    def __init__(self, service_name: str = MDP.S_ECHO, agent_name: str = ''):
+        super(ServiceExeEcho, self).__init__(service_name, agent_name)
 
     # Override process
     def process(self, *args) -> dict:
