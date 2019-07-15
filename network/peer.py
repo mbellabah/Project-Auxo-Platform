@@ -1,7 +1,7 @@
 import zmq
 import uuid
 import time
-import utils
+from zmq_examples import utils
 import threading
 
 
