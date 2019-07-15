@@ -94,7 +94,6 @@ class MajorDomoBroker(object):
         self.monitor.run(event=event_filter)
 
         while True:
-            print("DEBUG DEBUG - worker_endpoints", self.worker_endpoints)          # FIXME: Remove
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
             except KeyboardInterrupt:
