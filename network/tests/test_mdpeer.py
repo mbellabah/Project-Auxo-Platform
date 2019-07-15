@@ -12,9 +12,11 @@ def test_local_local():
 
     # localhost
     peer0 = Peer(endpoint='ipc://routing.ipc', peer_name='peer0', peers=_peers0, verbose=True)
+    peer0.tie_to_peers()
 
     # localhost
     peer1 = Peer(endpoint='ipc://routing.ipc', peer_name='peer1', peers=_peers1, verbose=True)
+    peer1.tie_to_peers()
 
     for i in range(10):
         payload: bytes = f'request {i}'.encode('utf8')
@@ -37,9 +39,11 @@ def test_local_bbb(local_bool: bool = True):
     if local_bool:
         # localhost
         peer0 = Peer(endpoint='tcp://192.168.0.104:5555', peer_name='peer0', peers=_peers0, verbose=True)
+        peer0.tie_to_peers()
     else:
         # Running on BBB-df1f.local
         peer1 = Peer(endpoint='tcp://192.168.0.101:5555', peer_name='peer1', peers=_peers1, verbose=True)
+        peer1.tie_to_peers()
 
         for i in range(10):
             payload: bytes = f'request {i}'.encode('utf8')
@@ -61,9 +65,11 @@ def test_bbb_bbb(peer_0_bool: bool = True):
     if peer_0_bool:
         # bbb-df1f.local
         peer0 = Peer(endpoint='tcp://192.168.0.101:5555', peer_name='peer0', peers=_peers0, verbose=True)
+        peer0.tie_to_peers()
     else:
         # bbb-1b55.local
         peer1 = Peer(endpoint='tcp://192.168.0.100:5555', peer_name='peer1', peers=_peers1, verbose=True)
+        peer1.tie_to_peers()
 
         for i in range(10):
             payload: bytes = f'request {i}'.encode('utf8')
