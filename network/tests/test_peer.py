@@ -1,5 +1,5 @@
 import time
-from lib.mdperapi import Peer
+from lib.mdpeer import Peer
 
 
 def test_local_local():
