@@ -7,11 +7,13 @@ import zmq
 
 
 # TODO: Prove that the peers can connect to another peer given only the tcp endpoint
+# TODO: Fix the slow joiner issue, where the first message appears to be dropped
 
 class Peer(object):
     REQUEST_TIMEOUT = 2500      # 2.5 seconds
 
-    def __init__(self, peer_name: str, peers: dict, verbose=True):
+    def __init__(self, endpoint, peer_name: str, peers: dict, verbose=True):
+        self.endpoint = endpoint
         self.peer_name: bytes = peer_name.encode("utf8")
         self.peers: Dict[bytes, str] = peers
         self.request_queue = Queue()
@@ -42,9 +44,9 @@ class Peer(object):
             if not self.request_queue.empty():
                 if self.verbose:
                     print(self.peer_name, "Queue:", list(self.request_queue.queue))
-                curr_request = self.request_queue.get()
+                current_request = self.request_queue.get()
 
-                # Do some processing on curr_request
+                # Do some processing on current_request
                 time.sleep(0.1)
 
             time.sleep(1)
@@ -55,7 +57,11 @@ class Peer(object):
         thread.start()
 
     def recv_thread(self, peer_endpoint: str):
-        """ Receives information in a loop """
+        """
+        recv thread, receives information in a loop
+        :param peer_endpoint: the other peer's endpoint i.e. tcp://*:*
+        :return:
+        """
         self.recv_socket.connect(peer_endpoint)
         self.recv_socket.linger = 0
 
@@ -81,13 +87,23 @@ class Peer(object):
                     print(self.peer_name, ": Received ack!:", reply)
 
     def recv(self, peer_endpoint: str):
+        """
+        runs the recv thread defined above
+        :param peer_endpoint: the other peer's endpoint i.e. tcp://*:*
+        :return:
+        """
         thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,))
         thread.setDaemon(True)
         thread.start()
 
-    def send(self, endpoint: str, peer_ident: bytes, payload: bytes):
-        # bind the send socket
-        self.send_socket.bind(endpoint)
+    def send(self, peer_ident: bytes, payload: bytes):
+        """
+
+        :param peer_ident: the identity (bytes) of the peer we're sending to
+        :param payload:
+        :return:
+        """
+        self.send_socket.bind(self.endpoint)
 
         # basic request
         for _ in range(1):
@@ -109,7 +125,7 @@ class Peer(object):
 
 
 if __name__ == '__main__':
-    # # peername other_peer_name other_peer_endpoint send
+    # # peer name other_peer_name other_peer_endpoint send
     # args = sys.argv
     #
     #
@@ -123,12 +139,13 @@ if __name__ == '__main__':
     _peers0 = {'peer1': 'ipc://routing.ipc'}
     _peers1 = {'peer0': 'ipc://routing.ipc'}
 
-    peer0 = Peer(peer_name='peer0', peers=_peers0)
-    peer1 = Peer(peer_name='peer1', peers=_peers1)
+    peer0 = Peer(endpoint='ipc://routing.ipc', peer_name='peer0', peers=_peers0, verbose=True)
+    peer1 = Peer(endpoint='ipc://routing.ipc', peer_name='peer1', peers=_peers1, verbose=True)
 
-    for i in range(10):     # FIXME: Fix the slow joiner issue, where the first message is dropped
+    for i in range(10):
         payload: bytes = f'request {i}'.encode('utf8')
-        peer1.send(endpoint=_peers1['peer0'], peer_ident=b'peer0', payload=payload)
+        peer1.send(peer_ident=b'peer0', payload=payload)
+
         time.sleep(0.5)
 
 
