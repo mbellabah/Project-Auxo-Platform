@@ -11,10 +11,11 @@ import zmq
 class Peer(object):
     REQUEST_TIMEOUT = 2500      # 2.5 seconds
 
-    def __init__(self, peer_name: str, peers: dict):
+    def __init__(self, peer_name: str, peers: dict, verbose=True):
         self.peer_name: bytes = peer_name.encode("utf8")
         self.peers: Dict[bytes, str] = peers
         self.request_queue = Queue()
+        self.verbose = verbose
 
         self.poller = zmq.Poller()
 
@@ -39,7 +40,8 @@ class Peer(object):
 
         while True:
             if not self.request_queue.empty():
-                print(self.peer_name, ":", list(self.request_queue.queue))
+                if self.verbose:
+                    print(self.peer_name, "Queue:", list(self.request_queue.queue))
                 curr_request = self.request_queue.get()
 
                 # Do some processing on curr_request
@@ -67,14 +69,16 @@ class Peer(object):
             if items and self.recv_socket in items:
                 request = self.recv_socket.recv_multipart()
                 self.request_queue.put(request)     # add to the queue
-                print(self.peer_name, ": Request received:", request)
+                if self.verbose:
+                    print(self.peer_name, ": Request received:", request)
 
                 origin_peer = request.pop(0)
                 self.send_reply(origin_peer)
 
             if items and self.send_socket in items:
                 reply = self.send_socket.recv_multipart()
-                print(self.peer_name, ": Received ack!:", reply)
+                if self.verbose:
+                    print(self.peer_name, ": Received ack!:", reply)
 
     def recv(self, peer_endpoint: str):
         thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,))
