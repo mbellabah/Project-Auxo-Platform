@@ -18,6 +18,7 @@ from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP
 #       For the GUI, implement a separate screen (navigate via menu or tabs?) that allows one to see the broker
 #       interface!
 # TODO: Replace message frames [] with some base message class and its children
+# TODO: Do some testing on some basic distributed service, bag 'o numbers!
 
 
 class Service(object):

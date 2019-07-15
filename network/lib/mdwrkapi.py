@@ -9,8 +9,6 @@ from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name
 from mdpeer import PeerPort
 import MDP
 
-# TODO: Implement ability for workers within agents to ask for the address of given neighbors!
-
 
 class MajorDomoWorker(object):
     HEARTBEAT_LIVENESS = 3

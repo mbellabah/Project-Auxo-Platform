@@ -8,8 +8,6 @@ import service_exe as se
 from mdwrkapi import MajorDomoWorker
 
 
-# TODO: Interconnect the workers, perhaps use pub and sub -- better to receive the endpoints
-#       from the broker, and use that to connect with various workers on the same service!
 # TODO: Connect the main agent with all of its running workers via zmq??
 
 
