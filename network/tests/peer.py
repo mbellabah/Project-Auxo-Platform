@@ -1,13 +1,12 @@
 import time
-import random
 import threading
+from queue import Queue
+from typing import Dict
 
 import zmq
-import sys
 
-from typing import Dict
-from lib.zhelpers import ZMQMonitor
 
+# TODO: Prove that the peers can connect to another peer given only the tcp endpoint
 
 class Peer(object):
     REQUEST_TIMEOUT = 2500      # 2.5 seconds
@@ -15,6 +14,8 @@ class Peer(object):
     def __init__(self, peer_name: str, peers: dict):
         self.peer_name: bytes = peer_name.encode("utf8")
         self.peers: Dict[bytes, str] = peers
+        self.request_queue = Queue()
+
         self.poller = zmq.Poller()
 
         self.send_socket = zmq.Context().socket(zmq.ROUTER)
@@ -30,6 +31,27 @@ class Peer(object):
         for peer_endpoint in self.peers.values():
             self.recv(peer_endpoint)
 
+        self.process_queue()
+        print(f"Initialized {self.peer_name}")
+
+    def process_queue_thread(self):
+        """ Process the entry in the queue """
+
+        while True:
+            if not self.request_queue.empty():
+                print(self.peer_name, ":", list(self.request_queue.queue))
+                curr_request = self.request_queue.get()
+
+                # Do some processing on curr_request
+                time.sleep(0.1)
+
+            time.sleep(1)
+
+    def process_queue(self):
+        thread = threading.Thread(target=self.process_queue_thread)
+        thread.setDaemon(True)
+        thread.start()
+
     def recv_thread(self, peer_endpoint: str):
         """ Receives information in a loop """
         self.recv_socket.connect(peer_endpoint)
@@ -44,14 +66,15 @@ class Peer(object):
 
             if items and self.recv_socket in items:
                 request = self.recv_socket.recv_multipart()
-                print(self.peer_name, ":Request received:", request)
+                self.request_queue.put(request)     # add to the queue
+                print(self.peer_name, ": Request received:", request)
 
                 origin_peer = request.pop(0)
                 self.send_reply(origin_peer)
 
             if items and self.send_socket in items:
                 reply = self.send_socket.recv_multipart()
-                print(self.peer_name, ":Received ack!:", reply)
+                print(self.peer_name, ": Received ack!:", reply)
 
     def recv(self, peer_endpoint: str):
         thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,))
