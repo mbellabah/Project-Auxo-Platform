@@ -53,7 +53,7 @@ class Peer(object):
 
     def process_queue(self):
         thread = threading.Thread(target=self.process_queue_thread)
-        thread.setDaemon(True)
+        thread.setDaemon(False)
         thread.start()
 
     def recv_thread(self, peer_endpoint: str):
@@ -69,6 +69,8 @@ class Peer(object):
 
             try:
                 items = dict(self.poller.poll(self.REQUEST_TIMEOUT))
+                if self.verbose:
+                    print("DEBUG Poller", items)
             except KeyboardInterrupt:
                 break
 
@@ -93,7 +95,7 @@ class Peer(object):
         :return:
         """
         thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,))
-        thread.setDaemon(True)
+        thread.setDaemon(False)
         thread.start()
 
     def send(self, peer_ident: bytes, payload: bytes):
@@ -103,7 +105,10 @@ class Peer(object):
         :param payload:
         :return:
         """
-        self.send_socket.bind(self.endpoint)
+        try:
+            self.send_socket.bind(self.endpoint)        # FIXME: I'm sure there is an issue here!!
+        except zmq.error.ZMQError:
+            pass
 
         # basic request
         for _ in range(1):
@@ -136,17 +141,26 @@ if __name__ == '__main__':
     # if send:
     #     peer.send(peers['peer0'], peer_ident=b'peer0')
 
-    _peers0 = {'peer1': 'ipc://routing.ipc'}
-    _peers1 = {'peer0': 'ipc://routing.ipc'}
+    # MARK: Testing between bbb-df1f.local and localhost!
 
-    peer0 = Peer(endpoint='ipc://routing.ipc', peer_name='peer0', peers=_peers0, verbose=True)
-    peer1 = Peer(endpoint='ipc://routing.ipc', peer_name='peer1', peers=_peers1, verbose=True)
+    _peers0 = {'peer1': 'tcp://192.168.0.101:5555'}
+    _peers1 = {'peer0': 'tcp://192.168.0.104:5555'}
 
-    for i in range(10):
-        payload: bytes = f'request {i}'.encode('utf8')
-        peer1.send(peer_ident=b'peer0', payload=payload)
+    # localhost
+    peer0 = Peer(endpoint='tcp://192.168.0.104:5555', peer_name='peer0', peers=_peers0, verbose=True)
 
-        time.sleep(0.5)
+    # Running on BBB-df1f.local
+    # peer1 = Peer(endpoint='tcp://192.168.0.101:5555', peer_name='peer1', peers=_peers1, verbose=True)
+
+    try:
+        for i in range(10):
+            payload: bytes = f'request {i}'.encode('utf8')
+            peer1.send(peer_ident=b'peer0', payload=payload)
+
+            time.sleep(0.5)
+    except NameError:
+        pass
+
 
 
 
