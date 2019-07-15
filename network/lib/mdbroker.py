@@ -235,7 +235,7 @@ class MajorDomoBroker(object):
         logging.info(f"I: MDP  broker/0.1.1 is active at {endpoint}")
 
     def service_internal(self, service, msg):
-        """ Handle internal service according to spec """
+        """ Handle internal service according to spec -- service discovery for client side"""
         returncode = "501"
         if "mmi.service" == service:
             name = msg[-1]
@@ -300,7 +300,7 @@ class MajorDomoBroker(object):
 
         if option is not None:
             msg = [option] + msg
-        msg = [worker.address, b"", MDP.W_WORKER, command] + msg
+        msg = [worker.address, "", MDP.W_WORKER, command] + msg
         msg = ensure_is_bytes(msg)     # Try to make everything a byte
 
         if self.verbose:

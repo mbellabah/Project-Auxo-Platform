@@ -1,6 +1,6 @@
 import zmq
 import uuid
-import utils
+from zmq_examples import utils
 
 
 class Peer(object):

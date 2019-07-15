@@ -45,7 +45,7 @@ class MajorDomoWorker(object):
 
         ip_addr = get_host_name_ip()
         self.endpoint = f"tcp://{ip_addr}:{broker_port}".encode('utf8')     # FIXME: Change the port number here?
-        self.peers = None       # stores the locations of peers of the given service -- assuming service is idempotent
+        self.peers = None    # stores the tcp endpoints of peers for the given service -- assuming service is idempotent
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
