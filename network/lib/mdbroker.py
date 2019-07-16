@@ -19,6 +19,7 @@ from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP
 #       interface!
 # TODO: Replace message frames [] with some base message class and its children
 # TODO: Do some testing on some basic distributed service, bag 'o numbers!
+# TODO: There are a few bugs having to do with the queues
 
 
 class Service(object):
@@ -286,11 +287,21 @@ class MajorDomoBroker(object):
             service.requests.append(msg)
         self.purge_workers()
 
+        temp_flag: bool = True
         while service.waiting and service.requests:
-            msg = service.requests.popleft()
-            worker = service.waiting.popleft()
-            self.waiting.remove(worker)
-            self.send_to_worker(worker, MDP.W_REQUEST, None, msg)
+            if temp_flag:
+                request = service.requests.popleft()
+            multiple: bool = json.loads(request[2])["multiple_bool"]
+
+            while service.waiting:
+                worker = service.waiting.popleft()
+                self.waiting.remove(worker)
+                self.send_to_worker(worker, MDP.W_REQUEST, None, msg=request)
+
+                if not multiple:
+                    # we don't need multiple peers, we only need one, on first come first serve
+                    temp_flag = False
+                    break
 
     def send_to_worker(self, worker, command, option, msg=None):
         """ Send message to worker. If message is provided, sends that message """
