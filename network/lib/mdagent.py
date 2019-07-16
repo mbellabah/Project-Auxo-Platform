@@ -1,5 +1,6 @@
 import sys
 import time
+import json
 import argparse
 from typing import Dict
 
@@ -28,7 +29,8 @@ class Agent(object):
 
         # Define the services here!
         self.services = {
-            SERVICE.ECHO: se.ServiceExeEcho(agent_name=self.agent_name)
+            SERVICE.ECHO: se.ServiceExeEcho(agent_name=self.agent_name),
+            SERVICE.SUMNUMS: se.ServiceExeSumNums(agent_name=self.agent_name)
         }
 
         self.workers: Dict[str, MajorDomoWorker] = {}
@@ -56,7 +58,7 @@ class Agent(object):
             service_exe: se.ServiceExeBase = self.services[service]
             worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
             # run
-            service_exe.run(worker)
+            service_exe.run(worker, **kwargs)
 
         except KeyError as e:
             print(f"{service} behavior is not implemented: {repr(e)}")
@@ -72,7 +74,8 @@ def main():
     parser.add_argument('-port', default=5555, type=int, help='port to listen through')
     parser.add_argument('-service', default='echo', type=str, help='initial service for the agent')
     parser.add_argument('agent_name', type=str, help='agent\'s name')
-    parser.add_argument("-v", default=False, type=bool, help=' verbose output')
+    parser.add_argument("-v", default=False, type=bool, help='verbose output')
+    parser.add_argument("-d", '--inputs', type=json.loads, help='inputs that correspond to the service')
 
     args = parser.parse_args()
 
@@ -83,10 +86,11 @@ def main():
     port = args.port
     agent_name = args.agent_name
     service = args.service
+    inputs: dict = args.inputs
 
     # Instantiate and dispatch the worker
     agent = Agent(agent_name, broker_addr, port, verbose)
-    agent.run(service=service)
+    agent.run(service=service, **inputs)
 
 
 if __name__ == '__main__':

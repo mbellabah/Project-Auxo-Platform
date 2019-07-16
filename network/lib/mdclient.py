@@ -4,6 +4,7 @@ from mdcliapi import MajorDomoClient
 import time
 import json
 import argparse
+from typing import Any
 
 
 # Note how the client has no access to the service class definitions in MDP
@@ -19,10 +20,11 @@ class Client(object):
 
         self.client = MajorDomoClient(f"tcp://{self.broker}:{self.port}", verbose, client_name=self.client_name)
 
-    def run(self, service: str = "echo"):
-        num_requests: int = 1
+    def run(self, service: str, **kwargs):
+        num_requests: int = kwargs['num_requests']
+
         for i in range(num_requests):
-            request = "Hello World: " + str(i)
+            request = json.dumps(kwargs)
             try:
                 self.client.send(service, request)
             except KeyboardInterrupt:
@@ -56,6 +58,7 @@ def main():
     parser.add_argument('-service', default='echo', type=str, help='client service request')
     parser.add_argument('client_name', type=str, help='client\'s name')
     parser.add_argument("-v", default=False, type=bool, help=' verbose output')
+    parser.add_argument("-d", '--inputs', type=json.loads)
 
     args = parser.parse_args()
 
@@ -64,10 +67,11 @@ def main():
     port = args.port
     client_name = args.client_name
     service = args.service
+    inputs: dict = args.inputs
 
     client = Client(client_name, broker, port, verbose, service)
     time.sleep(2)       # hardcoded delay
-    client.run(service)
+    client.run(service, **inputs)
 
 
 if __name__ == '__main__':
