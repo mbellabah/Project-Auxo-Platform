@@ -41,8 +41,9 @@ class Worker(object):
     expiry = None       # expires at this point, unless a heartbeat comes through
 
     def __init__(self, identity, address, lifetime, endpoint, agent_name):
-        self.identity = identity
-        self.agent_name = agent_name
+        self.identity: bytes = identity
+        self.worker_name = unhexlify(self.identity)     # format A01.service
+        self.agent_name: bytes = agent_name        # the name of the agent that owns it
         self.address = address
         self.expiry = time.time() + 1e-3*lifetime
         self.endpoint = endpoint
@@ -179,7 +180,7 @@ class MajorDomoBroker(object):
                 worker.expiry = time.time() + 1e-3*self.HEARTBEAT_EXPIRY
                 endpoint = msg.pop(0)
                 worker.endpoint = endpoint
-                self.worker_endpoints[worker.service.name][worker.agent_name] = endpoint
+                self.worker_endpoints[worker.service.name][worker.worker_name] = endpoint
             else:
                 self.delete_worker(worker, True)
 
@@ -201,7 +202,7 @@ class MajorDomoBroker(object):
             worker.service.waiting.remove(worker)
 
         self.workers.pop(worker.identity)
-        self.worker_endpoints[worker.service.name].pop(worker.agent_name)
+        self.worker_endpoints[worker.service.name].pop(worker.worker_name)
 
     def require_worker(self, address):
         """ Finds the worker (creates if necessary) """

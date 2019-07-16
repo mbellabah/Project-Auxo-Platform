@@ -15,5 +15,5 @@ commands = [None, "READY", "REQUEST", "REPLY", "HEARTBEAT", "DISCONNECT"]
 
 
 # Services
-S_ECHO = "echo"
-S_NONE = "none"
+from service_exe import s
+SERVICE = s

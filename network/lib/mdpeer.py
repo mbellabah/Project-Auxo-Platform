@@ -14,7 +14,7 @@ class Peer(object):
 
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         self.endpoint = endpoint
-        self.peer_name: bytes = peer_name.encode("utf8")
+        self.peer_name: bytes = peer_name.encode("utf8")        # format: A01.echo.peer
         self.peers: Dict[bytes, str] = peers
         self.request_queue = Queue()
         self.verbose = verbose
@@ -24,7 +24,7 @@ class Peer(object):
         self.send_socket = zmq.Context().socket(zmq.ROUTER)
 
         self.recv_socket = zmq.Context().socket(zmq.DEALER)
-        self.recv_socket.identity = self.peer_name
+        self.recv_socket.identity = self.peer_name          # format: A01.echo.peer
 
         # initialize poller set
         self.poller.register(self.recv_socket, zmq.POLLIN)

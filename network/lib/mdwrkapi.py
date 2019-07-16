@@ -182,7 +182,7 @@ class MajorDomoWorker(object):
             peers_endpoints: Dict[bytes, bytes] = json.loads(msg[0])
             peers_endpoints: Dict[str, str] = strip_of_bytes(peers_endpoints)
 
-            peers_endpoints.pop(self.agent_name.decode('utf8'))      # pop own endpoint
+            peers_endpoints.pop(self.worker_name.decode('utf8'))      # pop own endpoint
             self.peers_endpoints: Dict[str, str] = peers_endpoints
 
             # Construct the peer port for the broker's request

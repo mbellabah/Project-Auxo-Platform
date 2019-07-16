@@ -4,6 +4,7 @@ import argparse
 from typing import Dict
 
 import MDP
+from MDP import SERVICE
 import service_exe as se
 from mdwrkapi import MajorDomoWorker
 
@@ -28,7 +29,7 @@ class Agent(object):
 
         # Define the services here!
         self.services = {
-            MDP.S_ECHO: se.ServiceExeEcho(agent_name=self.agent_name)
+            SERVICE.ECHO: se.ServiceExeEcho(agent_name=self.agent_name)
         }
 
         self.workers: Dict[str, MajorDomoWorker] = {}

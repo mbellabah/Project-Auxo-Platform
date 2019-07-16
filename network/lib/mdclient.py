@@ -6,6 +6,8 @@ import json
 import argparse
 
 
+# TODO: Break down the requests into request classes
+
 class Client(object):
     def __init__(self, client_name, broker, port, verbose, service):
         self.client_name = client_name
@@ -17,7 +19,7 @@ class Client(object):
         self.client = MajorDomoClient(f"tcp://{self.broker}:{self.port}", verbose, client_name=self.client_name)
 
     def run(self, service: str = "echo"):
-        num_requests: int = 2
+        num_requests: int = 1
         for i in range(num_requests):
             request = "Hello World: " + str(i)
             try:
