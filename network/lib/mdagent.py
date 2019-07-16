@@ -10,7 +10,7 @@ import service_exe as se
 from mdwrkapi import MajorDomoWorker
 
 # TODO: Connect the main agent with all of its running workers via zmq??
-
+# TODO: Have agents shutdown cleanly
 
 class Agent(object):
     def __init__(self, agent_name, broker, port, verbose):

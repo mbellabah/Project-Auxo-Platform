@@ -24,7 +24,7 @@ class Client(object):
         num_requests: int = kwargs['num_requests']
 
         for i in range(num_requests):
-            request = json.dumps(kwargs)
+            request = json.dumps(kwargs)    # FIXME: May have to remove some extra client information here!
             try:
                 self.client.send(service, request)
             except KeyboardInterrupt:
@@ -33,12 +33,15 @@ class Client(object):
 
         count = 0
         actual_reply = 'null'
-        while count < num_requests:
+        expected_num_replies: int = num_requests + 1
+        while count < expected_num_replies:
             try:
                 reply = self.client.recv()
                 # Frame 0: actual_reply
                 # Frame 1: worker_origin
-                actual_reply = json.loads(reply[0])
+                if reply:
+                    actual_reply = json.loads(reply[0])
+
             except KeyboardInterrupt:
                 break
             else:
