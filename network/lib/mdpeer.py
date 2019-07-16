@@ -15,7 +15,8 @@ class Peer(object):
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         self.endpoint = endpoint
         self.peer_name: bytes = peer_name.encode("utf8")        # format: A01.echo.peer
-        self.peers: Dict[bytes, str] = peers
+        self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peers': str}
+
         self.request_queue = Queue()
         self.verbose = verbose
 
@@ -32,7 +33,6 @@ class Peer(object):
 
         self.process_queue()
 
-        line()
         print(f"Initialized {self.peer_name}")
         print(f"{self.peer_name} has peers: {self.peers}")
         line()

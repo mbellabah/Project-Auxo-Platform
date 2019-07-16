@@ -9,6 +9,9 @@ from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name
 from mdpeer import PeerPort
 import MDP
 
+# MARK: Constants
+LOCAL: bool = True      # if running on this machine, use 'ipc://routing.ipc'
+
 
 class MajorDomoWorker(object):
     HEARTBEAT_LIVENESS = 3
@@ -48,9 +51,9 @@ class MajorDomoWorker(object):
 
         # Inter-worker peer handling
         ip_addr = get_host_name_ip()
-        self.endpoint: str = f"tcp://{ip_addr}:{broker_port}"   # FIXME: Change the port number here?
+        self.endpoint: str = 'ipc://routing.ipc' if LOCAL else f"tcp://{ip_addr}:{broker_port}"
 
-        self.peers_endpoints: Dict[str, str] = {}    # tcp endpoints of peers for the given service
+        self.peers_endpoints: Dict[bytes, str] = {}    # tcp endpoints of peers for the given service
         # Note that self.peer has not been connected to its peers
         self.peer_port: PeerPort = None
         self.peer_request_queue: Queue = Queue()
@@ -183,7 +186,16 @@ class MajorDomoWorker(object):
             peers_endpoints: Dict[str, str] = strip_of_bytes(peers_endpoints)
 
             peers_endpoints.pop(self.worker_name.decode('utf8'))      # pop own endpoint
-            self.peers_endpoints: Dict[str, str] = peers_endpoints
+            self.peers_endpoints = peers_endpoints
+            # convert dict[str, str] to dict[bytes, str]
+
+            kv_pairs = list(self.peers_endpoints.items())
+            self.peers_endpoints.clear()
+            for k, v in kv_pairs:
+                new_key: bytes = (k+'.peer').encode('utf8')
+                self.peers_endpoints[new_key] = v
+                if LOCAL:
+                    self.peers_endpoints[new_key] = 'ipc://routing.ipc'
 
             # Construct the peer port for the broker's request
             if self.peers_endpoints:
