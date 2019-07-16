@@ -14,6 +14,11 @@ W_DISCONNECT = b"\005"
 commands = [None, "READY", "REQUEST", "REPLY", "HEARTBEAT", "DISCONNECT"]
 
 
-# Services
-from service_exe import s
-SERVICE = s
+if __name__ == '__main__':
+    # To see the available services
+    print("The available services are:")
+    try:
+        from service_exe import s as SERVICE
+        print(SERVICE)
+    except ImportError:
+        raise ImportError("Check that the service_exe.py file is nearby...")

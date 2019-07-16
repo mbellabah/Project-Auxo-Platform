@@ -6,6 +6,7 @@ import json
 import argparse
 
 
+# Note how the client has no access to the service class definitions in MDP
 # TODO: Break down the requests into request classes
 
 class Client(object):

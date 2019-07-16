@@ -4,10 +4,9 @@ import argparse
 from typing import Dict
 
 import MDP
-from MDP import SERVICE
+from service_exe import s as SERVICE
 import service_exe as se
 from mdwrkapi import MajorDomoWorker
-
 
 # TODO: Connect the main agent with all of its running workers via zmq??
 

@@ -6,7 +6,6 @@ from typing import List, Tuple
 from abc import ABCMeta, abstractmethod
 
 from mdwrkapi import MajorDomoWorker
-import MDP
 
 # MARK: to be imported from other MDP
 clsmembers: List = []
@@ -70,6 +69,12 @@ class ServiceExeNumberBag(ServiceExeBase):
         pass
 
 
+# MARK: All the goodies, this is done to automate getting the available services directly from the class names
+#       i.e. ServiceExeNumberBag --> s.NUMBERBAG = numberbag
 clsmembers: List[Tuple[str, object]] = inspect.getmembers(sys.modules[__name__], inspect.isclass)
 clsmembers: List[str] = [class_name[10:].upper() for class_name, _ in clsmembers if class_name.startswith('Service')]
 s = namedtuple('Services', clsmembers)._make(name.lower() for name in clsmembers)
+
+
+if __name__ == '__main__':
+    print(s)
