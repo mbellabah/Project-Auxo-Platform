@@ -1,7 +1,7 @@
-import logging
-import sys
 import time
 import json
+import random
+import logging
 import argparse
 from collections import deque, defaultdict
 from binascii import hexlify, unhexlify
@@ -290,26 +290,28 @@ class MajorDomoBroker(object):
             service.requests.append(msg)
         self.purge_workers()
 
-        temp_flag: bool = True
         while service.waiting and service.requests:
-            if temp_flag:
-                request = service.requests.popleft()
+            request = service.requests.popleft()
             multiple: bool = json.loads(request[2])["multiple_bool"]    # client may indicate the problem requires coord
 
+            leader_index: int = self.determine_leader(len(service.waiting))
+            worker_index: int = 0
             while service.waiting:
                 worker = service.waiting.popleft()
                 self.waiting.remove(worker)
+
+                leader_bool: bool = leader_index == worker_index
+                print("DEBUG DEBUG", leader_bool, worker_index, leader_index)
+                option = {'leader': leader_bool, 'peer_endpoints': strip_of_bytes(self.worker_endpoints[service.name])}
 
                 # msg:
                 #   Frame 0: client address
                 #   Frame 1: empty
                 #   Frame 2: client request
-                option = {'leader': False, 'peer_endpoints': strip_of_bytes(self.worker_endpoints[service.name])}
                 self.send_to_worker(worker, MDP.W_REQUEST, option=option, msg=request)
+                worker_index += 1
 
             if not multiple:
-                # we don't need multiple peers, we only need one, on first come first serve
-                temp_flag = False
                 break
 
     def send_to_worker(self, worker, command, option, msg=None):
@@ -329,6 +331,11 @@ class MajorDomoBroker(object):
             dump(msg)
 
         self.socket.send_multipart(msg)
+
+    @staticmethod
+    def determine_leader(num_workers: int) -> int:
+        """ Picks worker at random """
+        return random.randint(0, num_workers-1)
 
 
 def main():
