@@ -1,3 +1,6 @@
+# Brief Overview of the System
+pass 
+
 # Initializing the Broker, Agent and Client
 To initialize the broker, in the terminal run: `python3 mdbroker.py -port=5555 -v=True`
 

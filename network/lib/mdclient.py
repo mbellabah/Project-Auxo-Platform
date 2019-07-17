@@ -4,13 +4,14 @@ from mdcliapi import MajorDomoClient
 import time
 import json
 import argparse
-from typing import Any
 
 
 # Note how the client has no access to the service class definitions in MDP
 # TODO: Break down the requests into request classes
 
 class Client(object):
+    TIMEOUT: int = 10       # seconds
+
     def __init__(self, client_name, broker, port, verbose, service):
         self.client_name = client_name
         self.broker = broker        # broker's ip addr
@@ -33,14 +34,16 @@ class Client(object):
 
         count = 0
         actual_reply = 'null'
-        expected_num_replies: int = 1 # num_requests + 1
-        while count < expected_num_replies:
+        timeout = time.time() + self.TIMEOUT    # TIMEOUT second timeout
+        while time.time() < timeout:        # count < expected_num_replies:
             try:
                 reply = self.client.recv()
                 # Frame 0: actual_reply
                 # Frame 1: worker_origin
                 if reply:
                     actual_reply = json.loads(reply[0])
+                    if actual_reply:
+                        break
 
             except KeyboardInterrupt:
                 break
