@@ -205,7 +205,11 @@ class MajorDomoWorker(object):
             assert empty == b''
             actual_msg = msg.pop(0)
 
-            peers_endpoints: Dict[bytes, bytes] = json.loads(options)['peer_endpoints']
+            options: dict = json.loads(options)
+
+            self.leader_bool = options['leader']
+
+            peers_endpoints: Dict[bytes, bytes] = options['peer_endpoints']
             peers_endpoints: Dict[str, str] = strip_of_bytes(peers_endpoints)
             peers_endpoints.pop(self.worker_name.decode('utf8'))      # pop own endpoint
             self.peers_endpoints = peers_endpoints

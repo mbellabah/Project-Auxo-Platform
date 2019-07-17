@@ -1,10 +1,12 @@
 import time
+import json
 import threading
 from queue import Queue
-from typing import Dict
+from typing import Dict, Any, List
 
+import MDP
 import zmq
-from zhelpers import line
+from zhelpers import line, strip_of_bytes
 
 # TODO: Fix the slow joiner issue, where the first message appears to be dropped
 
@@ -17,6 +19,7 @@ class Peer(object):
         self.endpoint = endpoint
         self.peer_name: bytes = peer_name.encode("utf8")        # format: A01.echo.peer
         self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peers': str}
+        self.state_space: Dict[str, Any] = {'other_peer_data': {}}
 
         self.request_queue = Queue()
         self.verbose = verbose
@@ -68,7 +71,7 @@ class Peer(object):
             time.sleep(1)
 
     def process_queue(self):
-        thread = threading.Thread(target=self.process_queue_thread)
+        thread = threading.Thread(target=self.process_queue_thread, name='Thread-request-queue')
         thread.setDaemon(False)
         thread.start()
 
@@ -92,7 +95,7 @@ class Peer(object):
                 request = self.recv_socket.recv_multipart()
                 self.request_queue.put(request)     # add to the queue
                 if self.verbose:
-                    print(self.peer_name, ": Request received:", request)
+                    print(self.peer_name, ": Msg received:", request)
 
                 origin_peer = request.pop(0)
                 self.send_reply(origin_peer)
@@ -108,7 +111,7 @@ class Peer(object):
         :param peer_endpoint: the other peer's endpoint i.e. tcp://*:*
         :return:
         """
-        thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,))
+        thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,), name='Thread-recv')
         thread.setDaemon(False)
         thread.start()
 
@@ -119,7 +122,6 @@ class Peer(object):
         :param payload:
         :return:
         """
-        # FIXME: Send the message twice until the message dropping issue is fixed
         # basic request
         # Frame 0: origin, self identity
         # Frame 1: msg
@@ -139,6 +141,7 @@ class Peer(object):
     def stop(self):
         """ Destroy context and close the socket """
         # FIXME: Destroy the peer object/port cleanly
+        self.state_space = {'other_peer_data': {}}
         pass
 
 
@@ -153,9 +156,37 @@ class PeerPort(Peer):
             if not self.request_queue.empty():
                 if self.verbose:
                     print(self.peer_name, "Queue:", list(self.request_queue.queue))
-                current_request = self.request_queue.get()
+                msg: Any = self.request_queue.get()[0]
 
-            time.sleep(1)
+                try:
+                    msg: dict = json.loads(msg)
+                except Exception as e:
+                    print("Failed", repr(e))
+
+                command: bytes = msg['command'].encode('utf8')
+                self.command_handler(msg, command)
+
+            time.sleep(0.5)
+
+    def command_handler(self, msg, command):
+        peer_identity: bytes = msg['origin'].encode('utf8')
+
+        if command == MDP.W_REQUEST:
+            # I've been requested -- send reply with info
+            request_state: str = msg['request_state']
+            reply_state: Any or None = self.state_space.get(request_state, None)
+
+            payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}
+            payload: dict = strip_of_bytes(payload)
+            jsonified_payload: bytes = json.dumps(payload).encode('utf8')
+
+            self.send(peer_ident=peer_identity, payload=jsonified_payload)
+
+        elif command == MDP.W_REPLY:
+            # Only ever really get other peers' data if self is the leader peer-port
+            requested_state: str = msg['request_state']
+            requested_state_data: str = msg['request_data']
+            self.state_space['other_peer_data'][peer_identity.decode('utf8')] = {requested_state: requested_state_data}
 
     def get_request_queue(self) -> Queue:
         return self.request_queue

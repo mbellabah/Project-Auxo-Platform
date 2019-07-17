@@ -2,10 +2,13 @@ import sys
 import time
 import json
 import inspect
-from collections import namedtuple
 from typing import List, Tuple
+from collections import namedtuple
 from abc import ABCMeta, abstractmethod
 
+import MDP
+import work_functions as wf
+from zhelpers import strip_of_bytes
 from mdwrkapi import MajorDomoWorker
 
 # MARK: to be imported from other MDP
@@ -24,6 +27,7 @@ class ServiceExeBase(metaclass=ABCMeta):
         self.service_name = service_name
         self.worker: MajorDomoWorker = None
         self.worker_name: str = agent_name + '.' + self.service_name
+        self.peer_port = None
 
     def run(self, worker: MajorDomoWorker, **kwargs):
         reply = None
@@ -80,42 +84,53 @@ class ServiceExeSumNums(ServiceExeBase):
             request: dict = json.loads(args[0])
             worker: MajorDomoWorker = args[1]
             self.worker = worker
+            self.peer_port = worker.peer_port
         except IndexError:
             raise IndexError('Error: worker object has not been supplied:')
 
-        target: int = int(request['target'])
+        assert self.peer_port, "This service requires peers to exist!"
+        assert kwargs, "Need to provide kwargs"
+        target_number: int = int(request['target'])
+        my_summand: int = kwargs['my_summand']
 
-        if kwargs:
-            my_summand: int = kwargs['my_summand']
-        else:
-            raise KeyError("Need values to provide", {self.service_name})
+        # Populate the peer-ports state-space
+        self.peer_port.state_space['my_summand'] = my_summand
+        self.peer_port.state_space['target_number'] = target_number
 
         # Connect peer_port to all the peers -- Note that the worker possesses the peer port
-        peer_port = worker.peer_port
-        if not peer_port:
-            raise Exception("This service requires peers to exist!")
-
-        peer_port.tie_to_peers()
+        self.peer_port.tie_to_peers()
         time.sleep(self.BIND_WAIT)
-
-        for my_peer_ident in peer_port.peers:
-            payload: bytes = str(my_summand).encode('utf8')
-            peer_port.send(my_peer_ident, payload=payload)
 
         # Determine whether this given peer is the group's leader
         if not self.leader_bool:
             return {}
 
-        # Do some work
-        time.sleep(2)
-        payload = my_summand
+        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
+        # leader sends request to all attached peers asking for their info
+        for peer_identity in self.peer_port.peers:
+            request: dict = strip_of_bytes({'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': 'my_summand'})
+            request: bytes = json.dumps(request).encode('utf8')
+            self.peer_port.send(peer_identity, payload=request)
+
+        while len(self.peer_port.state_space['other_peer_data']) != len(self.peer_port.peers):
+            # Wait until we receive everything from all th peers
+            pass
+
+        # state_space {'other_peer_data': {'A02.sumnums.peer': {'my_summand': 8}}, 'my_summand': 2, 'target_number': 10}
+        all_summands = [my_summand]
+        for peer, data in self.peer_port.state_space['other_peer_data'].items():
+            all_summands.append(data['my_summand'])
+
+        # DO WORK!
+        payload = self.work(all_nums=all_summands, target=target_number)
 
         reply = {'reply': payload, 'origin': self.worker_name}
-
-        # Send a reply
         return reply
 
-
+    @staticmethod
+    def work(all_nums: List[int], target: int) -> str:
+        out = wf.find_pair_adding_to_target(all_nums, target)
+        return str(out)
 
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names

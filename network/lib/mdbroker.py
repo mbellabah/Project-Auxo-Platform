@@ -301,7 +301,6 @@ class MajorDomoBroker(object):
                 self.waiting.remove(worker)
 
                 leader_bool: bool = leader_index == worker_index
-                print("DEBUG DEBUG", leader_bool, worker_index, leader_index)
                 option = {'leader': leader_bool, 'peer_endpoints': strip_of_bytes(self.worker_endpoints[service.name])}
 
                 # msg:
