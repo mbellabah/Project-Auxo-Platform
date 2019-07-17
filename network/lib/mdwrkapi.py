@@ -59,6 +59,7 @@ class MajorDomoWorker(object):
         # Note that self.peer has not been connected to its peers
         self.peer_port: PeerPort = None
         self.peer_request_queue: Queue = Queue()
+        self.leader_bool = False
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 

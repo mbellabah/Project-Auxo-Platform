@@ -136,7 +136,6 @@ class ServiceExeSumNums(ServiceExeBase):
         self.worker.leader_bool = result
 
 
-
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names
 #       i.e. ServiceExeNumberBag --> s.NUMBERBAG = numberbag
 clsmembers: List[Tuple[str, object]] = inspect.getmembers(sys.modules[__name__], inspect.isclass)

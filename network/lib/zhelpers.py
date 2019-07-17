@@ -101,6 +101,16 @@ def strip_of_bytes(input_dict: dict):
     return input_dict
 
 
+def int_to_bytes(x: int) -> bytes:
+    # Only working for non-neg integers
+    return x.to_bytes((x.bit_length() + 7)//8, 'big')
+
+
+def int_from_bytes(xbytes: bytes) -> int:
+    # Only works for non-neg integers
+    return int.from_bytes(xbytes, 'big')
+
+
 def get_host_name_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
