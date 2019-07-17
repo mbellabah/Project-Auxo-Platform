@@ -1,5 +1,5 @@
 # Brief Overview of the System
-pass 
+* Broker elects a leader (does so at random) -- may later implement some notion of reputation.  
 
 # Initializing the Broker, Agent and Client
 To initialize the broker, in the terminal run: `python3 mdbroker.py -port=5555 -v=True`

@@ -10,7 +10,7 @@ import zmq
 
 # Local
 import MDP
-from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP
+from zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQMonitor, EVENT_MAP
 
 # NOTE: Make sure the broker is as stateless and lean as possible. The compute and much of the processing should be at
 #       at the edge, the broker is simply a proxy device that is just 'there'
@@ -140,7 +140,7 @@ class MajorDomoBroker(object):
         service = msg.pop(0)
 
         # Set reply return address to client sender
-        msg = [sender, ""] + msg + [self.worker_endpoints[service]]
+        msg = [sender, ""] + msg
         if service.startswith(self.INTERNAL_SERVICE_PREFIX):
             self.service_internal(service, msg)
         else:
@@ -294,12 +294,18 @@ class MajorDomoBroker(object):
         while service.waiting and service.requests:
             if temp_flag:
                 request = service.requests.popleft()
-            multiple: bool = json.loads(request[2])["multiple_bool"]
+            multiple: bool = json.loads(request[2])["multiple_bool"]    # client may indicate the problem requires coord
 
             while service.waiting:
                 worker = service.waiting.popleft()
                 self.waiting.remove(worker)
-                self.send_to_worker(worker, MDP.W_REQUEST, None, msg=request)
+
+                # msg:
+                #   Frame 0: client address
+                #   Frame 1: empty
+                #   Frame 2: client request
+                option = {'leader': False, 'peer_endpoints': strip_of_bytes(self.worker_endpoints[service.name])}
+                self.send_to_worker(worker, MDP.W_REQUEST, option=option, msg=request)
 
             if not multiple:
                 # we don't need multiple peers, we only need one, on first come first serve

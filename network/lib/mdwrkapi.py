@@ -10,6 +10,9 @@ from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name
 from mdpeer import PeerPort
 import MDP
 
+
+# TODO: Change so it can handle requests from multiple clients
+
 # MARK: Constants
 LOCAL: bool = True      # if running on this machine, use 'ipc://routing.ipc'
 
@@ -146,6 +149,15 @@ class MajorDomoWorker(object):
                 # Don't try to handle errors, just assert noisily
                 assert len(msg) >= 3
 
+                # msg from broker:
+                #   Frame 0: empty
+                #   Frame 1: MDPW
+                #   Frame 2: x/02 (type request)
+                #   Frame 3: options (type dict -- use json loads to unpack)
+                #   Frame 4: client addr
+                #   Frame 5: empty
+                #   Frame 6: client request
+
                 empty = msg.pop(0)
                 assert empty == b''
                 header = msg.pop(0)
@@ -178,16 +190,23 @@ class MajorDomoWorker(object):
 
     def command_handler(self, command: bytes, msg: list):
         if command == MDP.W_REQUEST:
+
+            # msg:
+            # Frame 0: options
+            # Frame 1: client_addr
+            # Frame 2: empty
+            # Frame 3: client request
+
             # We should pop and save as many addresses as there are
             # up to a null part, but for now, just save one...
+            options = msg.pop(0)
             self.reply_to = msg.pop(0)
-            # pop empty
             empty = msg.pop(0)
             assert empty == b''
             actual_msg = msg.pop(0)
-            peers_endpoints: Dict[bytes, bytes] = json.loads(msg[0])
-            peers_endpoints: Dict[str, str] = strip_of_bytes(peers_endpoints)
 
+            peers_endpoints: Dict[bytes, bytes] = json.loads(options)['peer_endpoints']
+            peers_endpoints: Dict[str, str] = strip_of_bytes(peers_endpoints)
             peers_endpoints.pop(self.worker_name.decode('utf8'))      # pop own endpoint
             self.peers_endpoints = peers_endpoints
             # convert dict[str, str] to dict[bytes, str]

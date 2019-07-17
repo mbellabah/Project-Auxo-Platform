@@ -40,13 +40,6 @@ class ServiceExeBase(metaclass=ABCMeta):
             return self.worker.leader_bool
 
     @abstractmethod
-    def determine_leader(self):
-        """
-        Determine the leader in a given peer group for the given service_exe
-        """
-        pass
-
-    @abstractmethod
     def process(self, *args, **kwargs) -> dict:
         pass
 
@@ -72,12 +65,6 @@ class ServiceExeEcho(ServiceExeBase):
 
         reply = {'payload': payload, 'origin': self.worker_name}
         return reply
-
-    def determine_leader(self):
-        """
-        Simple echo service doesn't need to coordinate with peers!
-        """
-        pass
 
 
 class ServiceExeSumNums(ServiceExeBase):
@@ -116,7 +103,6 @@ class ServiceExeSumNums(ServiceExeBase):
             peer_port.send(my_peer_ident, payload=payload)
 
         # Determine whether this given peer is the group's leader
-        self.determine_leader()
         if not self.leader_bool:
             return {}
 
@@ -129,11 +115,7 @@ class ServiceExeSumNums(ServiceExeBase):
         # Send a reply
         return reply
 
-    def determine_leader(self):
-        assert self.worker, "worker doesn't exist!"
-        result = False
 
-        self.worker.leader_bool = result
 
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names
