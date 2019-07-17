@@ -111,6 +111,8 @@ def get_host_name_ip():
         ip = '127.0.0.1'
     finally:
         s.close()
+    if ip == '10.0.2.15':
+        ip = '127.0.0.1'
     return ip
 
 

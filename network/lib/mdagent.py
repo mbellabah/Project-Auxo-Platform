@@ -1,5 +1,3 @@
-import sys
-import time
 import json
 import argparse
 from typing import Dict
@@ -11,6 +9,8 @@ from mdwrkapi import MajorDomoWorker
 
 # TODO: Connect the main agent with all of its running workers via zmq??
 # TODO: Have agents shutdown cleanly
+# TODO: Make the workers/service_exe within the agent multithreaded
+
 
 class Agent(object):
     def __init__(self, agent_name, broker, port, verbose):
@@ -40,7 +40,7 @@ class Agent(object):
         Creates a new worker for a given service as of now, 1 worker per service
         :return:
         """
-        worker = MajorDomoWorker(f"tcp://{self.broker}:{self.port}", service, self.verbose, worker_name, self.port)
+        worker = MajorDomoWorker(f"tcp://{self.broker}:{self.port}", service, self.verbose, worker_name, own_port=self.port)
         self.workers[service] = worker
         return worker
 

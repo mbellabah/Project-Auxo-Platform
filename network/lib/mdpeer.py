@@ -11,6 +11,7 @@ from zhelpers import line
 
 class Peer(object):
     REQUEST_TIMEOUT = 2500      # 2.5 seconds
+    BIND_WAIT = 0.15     # secs
 
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         self.endpoint = endpoint
@@ -32,6 +33,14 @@ class Peer(object):
         self.poller.register(self.send_socket, zmq.POLLIN)
 
         self.process_queue()
+
+        try:
+            self.send_socket.bind(self.endpoint)
+        except zmq.error.ZMQError:
+            pass
+        finally:
+            # wait to bind
+            time.sleep(self.BIND_WAIT)      # FIXME: Think of a better way to not get the first message dropped
 
         print(f"Initialized {self.peer_name}")
         print(f"{self.peer_name} has peers: {self.peers}")
@@ -110,17 +119,15 @@ class Peer(object):
         :param payload:
         :return:
         """
-        try:
-            self.send_socket.bind(self.endpoint)
-        except zmq.error.ZMQError:
-            pass
-
+        # FIXME: Send the message twice until the message dropping issue is fixed
         # basic request
-        for _ in range(1):
-            # Frame 0: origin, self identity
-            # Frame 1: msg
-            msg = [self.peer_name, payload]
-            msg = [peer_ident] + msg
+        # Frame 0: origin, self identity
+        # Frame 1: msg
+        msg = [self.peer_name, payload]
+        msg = [peer_ident] + msg
+
+        num_send: int = 1
+        for _ in range(num_send):
             self.send_socket.send_multipart(msg)
 
     def send_reply(self, peer):
@@ -146,6 +153,7 @@ class PeerPort(Peer):
             if not self.request_queue.empty():
                 if self.verbose:
                     print(self.peer_name, "Queue:", list(self.request_queue.queue))
+                current_request = self.request_queue.get()
 
             time.sleep(1)
 

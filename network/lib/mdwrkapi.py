@@ -1,6 +1,7 @@
 import zmq
 import time
 import json
+import random
 import logging
 from queue import Queue
 from typing import Dict
@@ -31,8 +32,9 @@ class MajorDomoWorker(object):
 
     reply_to = None       # Return address if any
 
-    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER, broker_port=5555):
-        self.broker = broker
+    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER, own_port=5555):
+        self.broker: str = broker
+        self.own_port: int = own_port + random.randint(1, 20) if LOCAL else own_port
         self.service: str = service
         self.verbose = verbose
         if not isinstance(worker_name, bytes):
@@ -51,7 +53,7 @@ class MajorDomoWorker(object):
 
         # Inter-worker peer handling
         ip_addr = get_host_name_ip()
-        self.endpoint: str = 'ipc://routing.ipc' if LOCAL else f"tcp://{ip_addr}:{broker_port}"
+        self.endpoint: str = f"tcp://{ip_addr}:{self.own_port}"
 
         self.peers_endpoints: Dict[bytes, str] = {}    # tcp endpoints of peers for the given service
         # Note that self.peer has not been connected to its peers
@@ -194,8 +196,6 @@ class MajorDomoWorker(object):
             for k, v in kv_pairs:
                 new_key: bytes = (k+'.peer').encode('utf8')
                 self.peers_endpoints[new_key] = v
-                if LOCAL:
-                    self.peers_endpoints[new_key] = 'ipc://routing.ipc'
 
             # Construct the peer port for the broker's request
             if self.peers_endpoints:

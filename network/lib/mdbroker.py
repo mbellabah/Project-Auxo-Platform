@@ -19,7 +19,10 @@ from zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP
 #       interface!
 # TODO: Replace message frames [] with some base message class and its children
 # TODO: Do some testing on some basic distributed service, bag 'o numbers!
-# TODO: There are a few bugs having to do with the queues
+# TODO: There are a few bugs having to do with the queues and not deleting workers/services correctly
+# TODO: Write tests for the client and agent to make sure they run properly
+# TODO: Write tests for broker
+# TODO: Automate the launching of the different terminals -- ties in with test above
 
 
 class Service(object):
@@ -298,10 +301,10 @@ class MajorDomoBroker(object):
                 self.waiting.remove(worker)
                 self.send_to_worker(worker, MDP.W_REQUEST, None, msg=request)
 
-                if not multiple:
-                    # we don't need multiple peers, we only need one, on first come first serve
-                    temp_flag = False
-                    break
+            if not multiple:
+                # we don't need multiple peers, we only need one, on first come first serve
+                temp_flag = False
+                break
 
     def send_to_worker(self, worker, command, option, msg=None):
         """ Send message to worker. If message is provided, sends that message """

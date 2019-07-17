@@ -33,7 +33,7 @@ class Client(object):
 
         count = 0
         actual_reply = 'null'
-        expected_num_replies: int = num_requests + 1
+        expected_num_replies: int = 1 # num_requests + 1
         while count < expected_num_replies:
             try:
                 reply = self.client.recv()
