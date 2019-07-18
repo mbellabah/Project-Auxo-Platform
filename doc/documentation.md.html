@@ -14,11 +14,22 @@ assets in an electricity distribution grid, all acting as independent co-operati
 
 Aim to achieve the optimal control of distribution power grids.
 
+Desired Qualities of the Platform
+==================================================================
+* Computation should be concentrated at the edges
+* The network should be capable of peer-to-peer connectivity
+* Scalable
+* Ensure anonymity between the layers; agents and their workers should be anonymous to other agents, agents are anonymous to the clients, and the broker is blind to the peer-to-peer message passing between workers in agents. For the latter-most point, the broker has knowledge of all live workers (including agents as we shall see) on the platform, and may know who is capable of communicating with whom -- that's the extent of it's knowledge. By default, the Apollo broker is unaware of the underlying connections between workers.
+
 Overall Design
-=================================================================
+===================================================================
+Project Auxo Apollo is a service-oriented broker platform that interconnects clients, agents, and workers.
 
-Project Auxo Apollo is a service-oriented broker platform that connects clients with dispatachable agents
+Clients make service requests. Services can be simple get requests, requests for sophisticated network monitoring and diagnostics, as well as computation and actuation. Client requests are denoted with the service name, any inputs relevant to the fulfillment of the service; i.e. whether the client expects the service to include the efforts of multiple workers.
 
+Workers are multithreaded processing units that sit within the Agent container. A given worker is tied to a single service, i.e Worker-1 may only provide Service-A. If Agent-1 wanted to respond to several Service-A requests for several clients, it would spawn the equivalent number of Service-A workers. Upon fulfilling the service, the worker saves its state to the local agent, and expires. Worker states and logs are stored locally for 30 days or until the transaction is settled, which ever occurs first. Workers endpoints are defined via `tcp:\\ip_addr:port_num` -- the `port_num` is the only thing that varies among workers in a given agent.
+
+Note that Agent can be thought of a special worker, namely in that it never expires. With that said, all workers, including the agent, when connected to the Apollo broker, heartbeat periodically. The broker aggregates the available services, along with the network address (endpoints) of the relevant workers and passes the worker's peers (those that provide the same service) on each heartbeat acknowledgment. Although a worker could save the endpoints of its peers (and thus know the addressing information of other agents) locally, a worker cannot access a worker in another agent unless their keys match. After the fulfillment of a given service, the Apollo broker will prompt those Agents who participated to change their just-used validation keys. Upon a new service request, and the recreation of the same/similar peer group, the broker shares the network endpoint and key of each peer which is used to validate communication with the worker.
 
 *************************************************************************************************************************************
 *                                                                                                                                   *
@@ -46,6 +57,11 @@ Project Auxo Apollo is a service-oriented broker platform that connects clients 
 *   +-------------------------------------------------------------------------------------+                                         *
 *                                            A-Peer                                                                                 *
 *************************************************************************************************************************************
+
+(1) Client-1 requests service A and service B.
+(2) Client-1's requests are submitted to the broker (Project Auxo Apollo).
+(3) The broker forwards Client-1's requests to those agents who possess workers that can provide said service. The broker randomly elects a leader, Agent-1 for Service-A and Agent-3 for Service-B. Depending on the client's request; namely whether the request requires the coordination of many agents, the broker will indicate that the relevant workers bind to each other in a cooperative peer-to-peer fashion.
+(4) All active workers
 
 Demonstration
 ===================================================================
