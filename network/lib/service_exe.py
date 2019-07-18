@@ -17,7 +17,6 @@ s = None
 
 
 # TODO: Standardize the docstrings for the process method in each of these classes
-# TODO: Implement some form of leader election on the first peer-to-peer connection
 
 # MARK: Service definitions
 class ServiceExeBase(metaclass=ABCMeta):

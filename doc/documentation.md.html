@@ -1,0 +1,178 @@
+
+   <meta charset="utf-8" emacsmode="-*- markdown -*-"><link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/journal.css?">
+
+                        **Developing an Architecture for Multiagent Cyber-Physical Systems; the U.S. Electric Grid and the Proper Compensation of Distributed Energy Resources.**
+                           Project Auxo V. 1.0
+
+
+This project will examine and analyze the behavior of the distribution grid while using a
+proposed distribution system retail market, by analyzing it as a cyber-physical multiagent
+system. These agents behave as per the distributed optimization methods, security mechanisms,
+and market structure outlined in [3] through [5] (See formal research proposal, `.\documents\research_proposal.pdf`). In doing
+so, we hope to address the challenge of enabling the secure coordination of diverse and private
+assets in an electricity distribution grid, all acting as independent co-operative agents.
+
+Aim to achieve the optimal control of distribution power grids.
+
+Overall Design
+=================================================================
+
+Project Auxo Apollo is a service-oriented broker platform that connects clients with dispatachable agents
+
+
+*************************************************************************************************************************************
+*                                                                                                                                   *
+*                                                                                                                                   *
+*          +------------+                                                                                                           *
+*          |  Client-1  |                    .--.                                                .--------.                         *
+*          +------------+                 .-+    |                                              |          |                        *
+*          | Service-A  |             .--+        '--.                                          |'--------'|                        *
+*          | Service-B  |<---------->|  Project Auxo  |<--------------------------------------->| Database |                        *
+*          |            |             '--------------'                                          |          |                        *
+*          +------------+                      ^                                                 '--------'                         *
+*                            Internet          |                                                      ^                             *
+*                +-----------------------------+-----------------------------+                        |                             *
+*                |                             |                             |                        |                             *
+*                |                             |                             |                        |                             *
+*                v                             v                             v                        v                             *
+*         .-------------.               .-------------.               .-------------.             .--------.          .--------.    *
+*   +----*| Worker-1: A |               | Worker-2: C |    B-Peer     | Worker-1: A |*----+      / #    # /|         / #    # /|    *
+*   |     |             |               | Worker-1: B |*-------------*| Worker-2: B |     |     +--------+/|  LAN   +--------+/|    *
+*   |     |             |               |             |               |             |     |     |        +/|<------>|        +/|    *
+*   |     +-------------+               +-------------+               +-------------+     |     |   B-1  +/|        |   B-2  +/|    *
+*   |    ///  _______  \\\             ///  _______  \\\             ///  _______  \\\    |     |        +/         |        +/     *
+*   |   '-----------------'           '-----------------'           '-----------------'   |     '--------'          '--------'      *
+*   |         Agent-1                       Agent-2                       Agent-3         |            Backup Server Rack           *
+*   +-------------------------------------------------------------------------------------+                                         *
+*                                            A-Peer                                                                                 *
+*************************************************************************************************************************************
+
+Demonstration
+===================================================================
+
+At vero eos et accusamus et iusto odio dignissimos ducimus qui
+blanditiis praesentium voluptatum deleniti atque corrupti quos dolores
+et quas molestias excepturi sint occaecati cupiditate non provident,
+similique sunt in culpa qui officia deserunt mollitia animi, id est
+laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita
+distinctio. 
+
+
+File Hierarchy
+===================================================================
+
+Nam libero tempore, cum `soluta` nobis est eligendi optio
+cumque nihil impedit quo minus id quod maxime placeat facere possimus,
+omnis voluptas assumenda est, omnis dolor repellendus. Temporibus
+autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe
+eveniet ut et voluptates repudiandae sint et molestiae non
+recusandae. 
+
+
+
+Code Design
+==============================================================
+
+Nam libero tempore, cum soluta nobis est eligendi optio
+cumque nihil impedit quo minus id quod maxime placeat facere possimus,
+omnis voluptas assumenda est, omnis dolor repellendus.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ rust
+fn main() {
+    let x = 5u32;
+
+    let y = {
+        let x_squared = x * x;
+        let x_cube = x_squared * x;
+
+        // This expression will be assigned to `y`
+        x_cube + x_squared + x
+    };
+
+    let z = {
+        // The semicolon suppresses this expression and `()` is assigned to `z`
+        2 * x;
+    };
+
+    println!("x is {:?}", x);
+    println!("y is {:?}", y);
+    println!("z is {:?}", z);
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+PAC Thesis Paper Notes
+=============================================================
+All obtained from Jordan Romvary Paper Thesis -- the majority of the information below is summarized and thus NOT intellectually mine (at least to a meaningful degree).
+
+* Control and regulation of power grids relies on large-scale scedualable generation and stable load demand profiles.
+* Renewable technologies and DR methodologies means that new distributed control strategies are needed to better regulate volatile nature of modern generation and load profiles.
+
+* Currently, electric power is generated at generation sites capable of delivering large-scale and scheduable amounts of electric power at 2.3 kV and 30 kV. It's output is then stepped-up (raised to somewhere between 230 kV and 500 kV), and transmitted over large distances using the transmission grid. Substations near the consumer step down the high voltage into primary and secondary power; most household electrical outlets supply secondary power.
+
+**Smarter Power Grids**
+
+* Renewable Energy Resources (RERs): includes wind turbines, PV cells, etc.. Typically connects to the grid at lower voltages, via loads connected to the distribution substation.
+* Smart Inverters (SIs): converts solar PV's DC into AC prior to transmitting to the grid. Includes the ability to providing reactive power support and consume/generate power at specified power factors.
+* Demand Response (DR): the ability for consumers to react to real-time electric pricing to adjust their loads accordingly.
+* Auto-Tap Changers and Adaptive Voltage Regulators: small-scale transformers that can be adjusted to step-up/step-down voltage as need. It is now feasible to network these devices together and cooperatively change their tap settings in conjunction with other regulatory goals -- in theory allows for smoother voltage profile and prevent sagging end-of-line voltage levels.
+* Plug-in Hybrid Electric Vehicles (PHEVs): present themselves as large mobile loads that can be sedentary for long periods of time -- may participate in load shaping and other regulatory grid functions.
+
+**Main Challenges**
+
+* newer RER generation is intermittent and thus insufficient for in-advance scheduling.
+* Newer load demands are larger and more uncertain.
+* An increase in control actuation points means that centralized regulation is becoming computationally infeasible.
+Technological and political pressures means that the natural and risk-averse "conservative" solutions, i.e. constrain the penetration of RERs, are inappropriate.
+
+**Power Grid Modeling and Optimization**
+
+Necessary to choose sets of independent and dependent variables, such that the dependent variables follow the independent variables. Two main classes for partitioning grid variables are the branch flow model and the bus injection model. The branch flow model (concerned with branch variables) involves expression non-feeder bus voltages, transmission line currents, and transmission line power flow in terms of bus power injections and feeder voltages. The branch injection model (concerned with bus variables) involves expressing non-feeder bus voltages and bus current injections in terms of bus power injections and feeder voltages. The aforementioned thesis uses the branch flow model.
+
+We define the topological structure of the distribution power grid in the following way:
+
+* $B = \{1,\dots ,N\}$: The set of N buses (or nodes)
+* $F \subseteq B$: the set of feeder nodes, the buses connected to the transmission power grid
+* $T_d \subseteq B \times B$: the set of directed transmission lines, where $(i, j) \in T_D$ represents $i \to j$
+* $\hat{Z_{i,j}} = R_{i,j} + \hat{j}X_{i,j}$: the branch impedance on $(i, j)$, with branch resistance $R_{i,j}$ and branch reactance $X_{i,j}$.
+* $\hat{Y_{i,j}} = G_{i,j} - \hat{j}B_{i,j}$: the branch admittance on $(i,j)$ with branch conductance $G_{i,j}$ and branch susceptance $B_{i,j}$
+* $N_{US}(j) \triangleq \{i \in B | (i,j) \in T\} \subseteq B$: set of buses upstream of bus j
+* $N_{DS}(i) \triangleq \{j \in B | (i,j) \in T\} \subseteq B$: set of buses downstream of bus i
+
+The main variables at each bus for a given bus i:
+* $V_i$: bus voltage phasor
+* $I_i$: bus current phasor injection into the distributed power grid
+* $S_{i}^{G} = P_{i}^{G} + \hat{j}Q_{i}^{G}$: bus power generation phasor, with real power generation and reactive power generation
+* $S_{i}^{L} = P_{i}^{L} + \hat{j}Q_{i}^{L}$: bus power consumption phasor, with real power consumption and reactive power consumption
+* $S_i = S_{i}^{G} - S_{i}^{L}$: bus power injection into the DPG
+
+And the grid variables along each branch are:
+* $V_{i,j} = V_i - V_j$: branch voltage drop
+* $I_{i,j}$: branch current flow
+* $S_{i,j} = P_{i,j} + \hat{j}Q_{i,j}$: branch power flow, with real and reactive power flow components
+
+As for optimal power flow, the actuation variables are the bus power injects (real and reactive), and the substation/feeder voltage; once these variables are set, the rest of the grid variables, namely branch power/current flows follow accordingly assuming a feasible grid profile exists. This OPF problem may be reformulated as a mathematical optimization problem because of physical and economic constraints, which very briefly are: load generation constraints that limit the real and reactive power outputted by a bus with a given min-max bound. There is also variability with respect to load consumption, naturally, this imposes another constraint. Generation cost and consumption economic constraints can be modeled as convex quadratics in both real/reactive power generation/consumption. There are also energy efficiency considerations, i.e. thermal losses and other energy losses. Please refer to page 88 of the actual thesis for greater detail.
+
+
+**PAC, in application to the optimal power flow (OPF) problem in power distribution grids**
+
+* PAC enables the full decomposition of the OPF, with all real and reactive power injection decisions being locally determined. Previous approaches involve a centralized entity handling the decision making with minimal autonomy given to the bus entities.
+* For power grid optimization: we attempt to choose different power injection profiles that satisfy fixed physical laws.
+
+Formally, we model the the optimization problem as:
+\begin{equation}
+   \min_{x\in R}f(\mathbf{x}), s.t.: h(\mathbf{x; u}) \leq \mathbf{0}, g(\mathbf{x; u}) = \mathbf{0}
+\end{equation}
+Where $\mathbf{x} \in R^N$ are the local choices that influence the underlying system. $\mathbf{u} \in U$ are the external changes that affect how the environment changes. The functions h and g are the constraints on the feasible choices for X. $f(\cdot)$ is a metric describing how our choices affect the system's performance, i.e. the objective function.
+
+
+Questions
+==============================================================
+
+Questions? contact (A-Z): bellabah@mit.edu
+
+
+ 
+<style class="fallback">body{visibility:hidden}</style><script>markdeepOptions={tocStyle:'long'};</script>
+<!-- Markdeep: --><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js?" charset="utf-8"></script>
