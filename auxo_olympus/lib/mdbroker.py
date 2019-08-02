@@ -9,8 +9,8 @@ from binascii import hexlify, unhexlify
 import zmq
 
 # Local
-import MDP
-from zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQMonitor, EVENT_MAP
+import lib.MDP as MDP
+from lib.zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQMonitor, EVENT_MAP
 
 # NOTE: Make sure the broker is as stateless and lean as possible. The compute and much of the processing should be at
 #       at the edge, the broker is simply a proxy device that is just 'there'
@@ -23,6 +23,8 @@ from zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQMonitor, EVENT_MA
 # TODO: Write tests for the client and agent to make sure they run properly
 # TODO: Write tests for broker
 # TODO: Automate the launching of the different terminals -- ties in with test above
+# TODO: Make agent a special worker
+# TODO: Think of security
 
 
 class Service(object):

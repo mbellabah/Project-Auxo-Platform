@@ -1,4 +1,4 @@
-from service_exe import ServiceExeSumNums
+from lib.service_exe import ServiceExeSumNums
 
 
 # TODO: Write the tests for all the service_exes, will probably involve some tests for MajorDomoWorker as well

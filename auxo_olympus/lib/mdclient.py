@@ -1,5 +1,5 @@
 import sys
-from mdcliapi import MajorDomoClient
+from lib.mdcliapi import MajorDomoClient
 
 import time
 import json

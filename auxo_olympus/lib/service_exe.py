@@ -6,10 +6,10 @@ from typing import List, Tuple
 from collections import namedtuple
 from abc import ABCMeta, abstractmethod
 
-import MDP
-import work_functions as wf
-from zhelpers import strip_of_bytes
-from mdwrkapi import MajorDomoWorker
+import lib.MDP as MDP
+import lib.work_functions as wf
+from lib.zhelpers import strip_of_bytes
+from lib.mdwrkapi import MajorDomoWorker
 
 # MARK: to be imported from other MDP
 clsmembers: List = []

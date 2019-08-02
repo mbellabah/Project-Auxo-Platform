@@ -38,7 +38,7 @@ def listen(masked):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("interface", type=str, help="the network interface",
+    parser.add_argument("interface", type=str, help="the auxo_olympus interface",
                         choices=interfaces(),
                         )
     parser.add_argument("user", type=str, default=os.environ['USER'],

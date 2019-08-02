@@ -3,6 +3,7 @@
 
                         **Developing an Architecture for Multiagent Cyber-Physical Systems; the U.S. Electric Grid and the Proper Compensation of Distributed Energy Resources.**
                            Project Auxo V. 1.0
+                            Enabling the meaningful participation of assets at the edge
 
 
 This project will examine and analyze the behavior of the distribution grid while using a
@@ -12,14 +13,28 @@ and market structure outlined in [3] through [5] (See formal research proposal, 
 so, we hope to address the challenge of enabling the secure coordination of diverse and private
 assets in an electricity distribution grid, all acting as independent co-operative agents.
 
-Aim to achieve the optimal control of distribution power grids.
+Aim to achieve the optimal control of distribution power grids. Project Auxo is building the grid architecture of the future. Project Auxo
+Think of cells, or individuals -- we have some primary function -- cells regulate their internals and manage the interface between their membrane, but then contribute to the organ in which they reside.
+Imagine the infrastructure needed if 50% of the power generated is consumed at the location
+
+TODO
+==================================================================
+- [x] Make the workers within the agent multi-threaded
+- [ ] Make the workers have some expiration -- expiration is controlled by the agent; i.e it is the agent that chooses when to kill workers -- workers are otherwise persisting
+- [ ] Make the workers within an agent
+- [ ] Add basic security and authentication features
 
 Desired Qualities of the Platform
 ==================================================================
+DER business model looks to provide services and earn revenues at the multiple levels of the system.
+
 * Computation should be concentrated at the edges
 * The network should be capable of peer-to-peer connectivity
 * Scalable
 * Ensure anonymity between the layers; agents and their workers should be anonymous to other agents, agents are anonymous to the clients, and the broker is blind to the peer-to-peer message passing between workers in agents. For the latter-most point, the broker has knowledge of all live workers (including agents as we shall see) on the platform, and may know who is capable of communicating with whom -- that's the extent of it's knowledge. By default, the Apollo broker is unaware of the underlying connections between workers.
+* Manage volatility
+* Build resilient communities
+* Allow for islanding features that maximizes the self-containedness of the islands subject to the physical infrastructure
 
 Overall Design
 ===================================================================
@@ -41,16 +56,16 @@ Note that Agent can be thought of a special worker, namely in that it never expi
 *          | Service-B  |<---------->|  Project Auxo  |<--------------------------------------->| Database |                        *
 *          |            |             '--------------'                                          |          |                        *
 *          +------------+                      ^                                                 '--------'                         *
-*                            Internet          |                                                      ^                             *
+*                                              |                                                      ^                             *
 *                +-----------------------------+-----------------------------+                        |                             *
-*                |                             |                             |                        |                             *
+*                |           Internet          |                             |                        |                             *
 *                |                             |                             |                        |                             *
 *                v                             v                             v                        v                             *
 *         .-------------.               .-------------.               .-------------.             .--------.          .--------.    *
-*   +----*| Worker-1: A |               | Worker-2: C |    B-Peer     | Worker-1: A |*----+      / #    # /|         / #    # /|    *
-*   |     |             |               | Worker-1: B |*-------------*| Worker-2: B |     |     +--------+/|  LAN   +--------+/|    *
-*   |     |             |               |             |               |             |     |     |        +/|<------>|        +/|    *
-*   |     +-------------+               +-------------+               +-------------+     |     |   B-1  +/|        |   B-2  +/|    *
+*   +----*| Worker-1: A |               | Worker-2: C |               | Worker-1: A |*----+      / #    # /|         / #    # /|    *
+*   |     |             |               | Worker-1: B |*-------------*| Worker-2: B |     |     +--------+/|        +--------+/|    *
+*   |     |             |               |             |    B-Peer     |             |     |     |        +/|<------>|        +/|    *
+*   |     +-------------+               +-------------+               +-------------+     |     |   B-1  +/|  LAN   |   B-2  +/|    *
 *   |    ///  _______  \\\             ///  _______  \\\             ///  _______  \\\    |     |        +/         |        +/     *
 *   |   '-----------------'           '-----------------'           '-----------------'   |     '--------'          '--------'      *
 *   |         Agent-1                       Agent-2                       Agent-3         |            Backup Server Rack           *

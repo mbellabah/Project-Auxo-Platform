@@ -112,7 +112,7 @@ class Peer(object):
         :return:
         """
         thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,), name='Thread-recv')
-        thread.setDaemon(False)
+        thread.setDaemon(True)
         thread.start()
 
     def send(self, peer_ident: bytes, payload: bytes):

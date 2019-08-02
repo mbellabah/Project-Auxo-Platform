@@ -1,11 +1,13 @@
 import json
+import time
 import argparse
+import threading
 from typing import Dict
 
-import MDP
-from service_exe import s as SERVICE
-import service_exe as se
-from mdwrkapi import MajorDomoWorker
+import lib.MDP as MDP
+from lib.service_exe import s as SERVICE
+import lib.service_exe as se
+from lib.mdwrkapi import MajorDomoWorker
 
 # TODO: Connect the main agent with all of its running workers via zmq??
 # TODO: Have agents shutdown cleanly
@@ -34,6 +36,7 @@ class Agent(object):
         }
 
         self.workers: Dict[str, MajorDomoWorker] = {}
+        self.service_threads: Dict[str, threading.Thread] = {}
 
     def create_new_worker(self, worker_name, service):
         """
@@ -50,15 +53,23 @@ class Agent(object):
         assert worker is not None
         worker.destroy()
 
-    def run(self, service, **kwargs):
+    def start_service(self, service, **kwargs):
         assert self.services, "No services exist!"
 
         # run the service function
         try:
             service_exe: se.ServiceExeBase = self.services[service]
             worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
-            # run
-            service_exe.run(worker, **kwargs)
+
+            # Create and start new thread
+            service_thread = threading.Thread(target=service_exe.run, args=(worker,), kwargs=kwargs, name=f'{service}-Thread')
+            self.service_threads[f'{service}-Thread'] = service_thread
+            service_thread.setDaemon(True)
+            service_thread.start()
+
+            # Kill the worker
+            service_thread.join()
+            service_exe.worker.destroy()
 
         except KeyError as e:
             print(f"{service} behavior is not implemented: {repr(e)}")
@@ -66,6 +77,15 @@ class Agent(object):
         except KeyboardInterrupt:
             print(f"Killing {service} worker")
             self.delete_worker(service)
+
+    def run(self, initial_service=None, run_once_flag=True, **kwargs):
+        _run_once_flag = run_once_flag
+        while True:
+            if _run_once_flag:
+                self.start_service(initial_service, **kwargs)
+                _run_once_flag = False
+
+            print(self.service_threads[f'{initial_service}-Thread'].isAlive())
 
 
 def main():
@@ -90,7 +110,7 @@ def main():
 
     # Instantiate and dispatch the worker
     agent = Agent(agent_name, broker_addr, port, verbose)
-    agent.run(service=service, **inputs)
+    agent.run(initial_service=service, **inputs)
 
 
 if __name__ == '__main__':
