@@ -3,6 +3,8 @@ import json
 import random
 import logging
 import argparse
+import signal
+import threading
 from collections import deque, defaultdict
 from binascii import hexlify, unhexlify
 
@@ -25,6 +27,7 @@ from auxo_olympus.lib.zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQ
 # TODO: Automate the launching of the different terminals -- ties in with test above
 # TODO: Make agent a special worker
 # TODO: Think of security
+# TODO: Provide signal termination and make all the main agents threads
 
 
 class Service(object):
@@ -55,7 +58,7 @@ class Worker(object):
         self.endpoint = endpoint
 
 
-class MajorDomoBroker(object):
+class MajorDomoBroker(threading.Thread):
     """ Majordomo protocol broker"""
     INTERNAL_SERVICE_PREFIX = b"mmi."
     HEARTBEAT_LIVENESS = 4
@@ -75,7 +78,9 @@ class MajorDomoBroker(object):
 
     def __init__(self, verbose=False):
         """ Initialize the broker state """
+        super(MajorDomoBroker, self).__init__()
         self.verbose = verbose
+        self.shutdown_flag = threading.Event()
 
         self.services = {}
         self.workers = {}
@@ -94,18 +99,19 @@ class MajorDomoBroker(object):
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
-    def mediate(self):
+    def run(self):
         """ Main broker work happens here -- mediates between the client and the worker socket """
+        print("Broker-Thread started!")
 
         # Start the socket monitor
         event_filter: str = 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCEPTED]
         self.monitor.run(event=event_filter)
 
-        while True:
+        while not self.shutdown_flag.is_set():
             try:
                 items = self.poller.poll(self.HEARTBEAT_INTERVAL)
             except KeyboardInterrupt:
-                break
+                pass        # FIXME: May change this to a keyboard interrupt
 
             if items:
                 msg = self.socket.recv_multipart()
@@ -128,6 +134,8 @@ class MajorDomoBroker(object):
 
             self.purge_workers()
             self.send_heartbeats()
+
+        print("Broker-Thread has been stopped")
 
     def destroy(self):
         """ Disconnect all workers, destroy context """
@@ -339,6 +347,16 @@ class MajorDomoBroker(object):
         return random.randint(0, num_workers-1)
 
 
+class ServiceExit(Exception):
+    """ Custom exception to catch the broker using unix signals """
+    pass
+
+
+def service_shutdown(signum, frame):
+    print(f"Caught signal {signum} -- you pressed Ctrl-c")
+    raise ServiceExit
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-port', default=5555, type=int, help='port to listen through')
@@ -351,10 +369,26 @@ def main():
 
     print(args)
 
+    # Register the signal handlers
+    signal.signal(signal.SIGTERM, service_shutdown)
+    signal.signal(signal.SIGINT, service_shutdown)
+
+    print("Starting main program")
+
     """ Create and start new broker """
     broker = MajorDomoBroker(verbose)
     broker.bind(f"tcp://*:{port}")
-    broker.mediate()
+    try:
+        broker.start()
+
+        while True:
+            time.sleep(0.5)
+
+    except ServiceExit:
+        broker.shutdown_flag.set()
+        broker.join()
+
+    print("Exiting main program")
 
 
 if __name__ == '__main__':

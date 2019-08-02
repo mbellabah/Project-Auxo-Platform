@@ -4,7 +4,7 @@ import argparse
 import threading
 from typing import Dict
 
-import auxo_olympus.lib.MDP as MDP
+from auxo_olympus.lib import MDP
 from auxo_olympus.lib.service_exe import s as SERVICE
 import auxo_olympus.lib.service_exe as se
 from auxo_olympus.lib.mdwrkapi import MajorDomoWorker
