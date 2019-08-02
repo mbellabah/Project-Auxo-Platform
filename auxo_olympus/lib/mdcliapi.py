@@ -2,8 +2,8 @@ import logging
 
 import zmq
 
-import lib.MDP as MDP
-from lib.zhelpers import dump, ensure_is_bytes
+import auxo_olympus.lib.MDP as MDP
+from auxo_olympus.lib.zhelpers import dump, ensure_is_bytes
 
 
 class MajorDomoClient(object):

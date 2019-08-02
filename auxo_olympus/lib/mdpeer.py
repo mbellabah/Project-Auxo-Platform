@@ -4,9 +4,9 @@ import threading
 from queue import Queue
 from typing import Dict, Any, List
 
-import MDP
+import auxo_olympus.lib.MDP as MDP
+from auxo_olympus.lib.zhelpers import line, strip_of_bytes
 import zmq
-from zhelpers import line, strip_of_bytes
 
 # TODO: Fix the slow joiner issue, where the first message appears to be dropped
 

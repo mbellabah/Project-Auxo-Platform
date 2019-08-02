@@ -6,9 +6,9 @@ import logging
 from queue import Queue
 from typing import Dict
 
-from lib.zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name_ip, strip_of_bytes
-from lib.mdpeer import PeerPort
-import lib.MDP as MDP
+from auxo_olympus.lib.zhelpers import dump, ensure_is_bytes, ZMQMonitor, EVENT_MAP, get_host_name_ip, strip_of_bytes
+from auxo_olympus.lib.mdpeer import PeerPort
+import auxo_olympus.lib.MDP as MDP
 
 
 # TODO: Change so it can handle requests from multiple clients

@@ -1,7 +1,7 @@
 import unittest
 from typing import Dict, List
 
-from lib.zhelpers import strip_of_bytes, int_from_bytes, int_to_bytes
+from auxo_olympus.lib.zhelpers import strip_of_bytes, int_from_bytes, int_to_bytes
 
 
 class TestZHelpers(unittest.TestCase):

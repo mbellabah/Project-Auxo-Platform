@@ -4,10 +4,10 @@ import argparse
 import threading
 from typing import Dict
 
-import lib.MDP as MDP
-from lib.service_exe import s as SERVICE
-import lib.service_exe as se
-from lib.mdwrkapi import MajorDomoWorker
+import auxo_olympus.lib.MDP as MDP
+from auxo_olympus.lib.service_exe import s as SERVICE
+import auxo_olympus.lib.service_exe as se
+from auxo_olympus.lib.mdwrkapi import MajorDomoWorker
 
 # TODO: Connect the main agent with all of its running workers via zmq??
 # TODO: Have agents shutdown cleanly
