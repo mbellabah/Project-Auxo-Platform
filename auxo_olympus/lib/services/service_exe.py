@@ -18,8 +18,8 @@ class ServiceExeBase(metaclass=ABCMeta):
 
     def __init__(self, service_name: str = 'base', agent_name: str = ''):
         self.service_name = service_name
+        self.agent_name: str = agent_name
         self.worker: MajorDomoWorker = None
-        self.worker_name: str = agent_name + '.' + self.service_name
         self.peer_port = None
 
     def run(self, worker: MajorDomoWorker, **kwargs):
@@ -36,9 +36,18 @@ class ServiceExeBase(metaclass=ABCMeta):
         if self.worker:
             return self.worker.leader_bool
 
+    @property
+    def worker_name(self):
+        return self.agent_name + '.' + self.service_name
+
     @abstractmethod
     def process(self, *args, **kwargs) -> dict:
         pass
+
+    def quit(self):
+        """ Quit and cleanup """
+        if self.worker:
+            self.worker.destroy()
 
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names

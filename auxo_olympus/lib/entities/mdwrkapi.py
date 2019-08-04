@@ -1,10 +1,11 @@
-import zmq
 import time
 import json
 import random
 import logging
 from queue import Queue
 from typing import Dict
+
+import zmq
 
 from auxo_olympus.lib.utils.zhelpers import dump, ensure_is_bytes, ZMQMonitor, get_host_name_ip, strip_of_bytes
 from auxo_olympus.lib.utils.mdpeer import PeerPort
@@ -245,4 +246,3 @@ class MajorDomoWorker(object):
 
     def destroy(self):
         self.ctx.destroy(0)
-

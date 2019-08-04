@@ -16,7 +16,7 @@ class ServiceExeEcho(ServiceExeBase):
     def process(self, *args, **kwargs) -> dict:
         try:
             request: dict = json.loads(args[0])
-            worker: MajorDomoWorker = args[1]
+            self.worker: MajorDomoWorker = args[1]
         except IndexError:
             raise IndexError('Error: worker object has not been supplied:')
 

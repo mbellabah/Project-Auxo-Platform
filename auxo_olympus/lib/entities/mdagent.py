@@ -1,7 +1,7 @@
 import json
 import argparse
 import threading
-from typing import Dict
+from typing import Dict, Tuple
 
 from auxo_olympus.lib.utils import MDP
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
@@ -32,14 +32,13 @@ class Agent(object):
         self.agent_type = MDP.W_WORKER
 
         # Define the services here!
-        print(SERVICE)
         self.services = {
             SERVICE.ECHO: serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name),
             SERVICE.SUMNUMS: serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
         }
 
         self.workers: Dict[str, MajorDomoWorker] = {}
-        self.service_threads: Dict[str, threading.Thread] = {}
+        self.service_threads: Dict[str, Tuple[se.ServiceExeBase, threading.Thread]] = {}
 
     def create_new_worker(self, worker_name, service):
         """
@@ -66,13 +65,9 @@ class Agent(object):
 
             # Create and start new thread
             service_thread = threading.Thread(target=service_exe.run, args=(worker,), kwargs=kwargs, name=f'{service}-Thread')
-            self.service_threads[f'{service}-Thread'] = service_thread
+            self.service_threads[f'{service}-Thread'] = (service_exe, service_thread)
             service_thread.setDaemon(True)
             service_thread.start()
-
-            # Kill the worker
-            service_thread.join(0.0)
-            service_exe.worker.destroy()
 
         except KeyError as e:
             print(f"{service} behavior is not implemented: {repr(e)}")
@@ -82,12 +77,23 @@ class Agent(object):
             self.delete_worker(service)
 
     def run(self, initial_service=None, run_once_flag=True, **kwargs):
-        self.start_service(service=initial_service, **kwargs)
-        # _run_once_flag = run_once_flag
-        # while True:
-        #     if _run_once_flag:
-        #         self.start_service(initial_service, **kwargs)
-        #         _run_once_flag = False
+        while True:
+            try:
+                if run_once_flag:
+                    self.start_service(service=initial_service, **kwargs)
+                    run_once_flag = False
+
+            except KeyboardInterrupt:
+                self.cleanup()
+
+    def cleanup(self):
+        for _, data in self.service_threads.items():
+            service, thread = data
+            if thread.is_alive():
+                thread.join(0.0)
+            service.quit()      # also kills the worker
+
+        self.workers.clear()
 
 
 def main():

@@ -12,6 +12,7 @@ import zmq
 
 # Local
 from auxo_olympus.lib.utils import MDP
+from auxo_olympus.lib.utils.helpers import service_shutdown, ServiceExit
 from auxo_olympus.lib.utils.zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQMonitor, EVENT_MAP
 
 # NOTE: Make sure the broker is as stateless and lean as possible. The compute and much of the processing should be at
@@ -345,16 +346,6 @@ class MajorDomoBroker(threading.Thread):
     def determine_leader(num_workers: int) -> int:
         """ Picks worker at random """
         return random.randint(0, num_workers-1)
-
-
-class ServiceExit(Exception):
-    """ Custom exception to catch the broker using unix signals """
-    pass
-
-
-def service_shutdown(signum, frame):
-    print(f"Caught signal {signum} -- you pressed Ctrl-c")
-    raise ServiceExit
 
 
 def main():
