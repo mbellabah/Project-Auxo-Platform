@@ -11,8 +11,8 @@ from binascii import hexlify, unhexlify
 import zmq
 
 # Local
-from auxo_olympus.lib import MDP
-from auxo_olympus.lib.zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQMonitor, EVENT_MAP
+from auxo_olympus.lib.utils import MDP
+from auxo_olympus.lib.utils.zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQMonitor, EVENT_MAP
 
 # NOTE: Make sure the broker is as stateless and lean as possible. The compute and much of the processing should be at
 #       at the edge, the broker is simply a proxy device that is just 'there'

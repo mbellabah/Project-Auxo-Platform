@@ -1,13 +1,15 @@
 import json
-import time
 import argparse
 import threading
 from typing import Dict
 
-from auxo_olympus.lib import MDP
-from auxo_olympus.lib.service_exe import s as SERVICE
-import auxo_olympus.lib.service_exe as se
-from auxo_olympus.lib.mdwrkapi import MajorDomoWorker
+from auxo_olympus.lib.utils import MDP
+from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
+
+# Import the relevant services
+from auxo_olympus.lib.services import service_exe as se
+from auxo_olympus.lib.services.service_exe import s as SERVICE
+from auxo_olympus.lib.services import serviceExeSumNums, serviceExeEcho
 
 # TODO: Connect the main agent with all of its running workers via zmq??
 # TODO: Have agents shutdown cleanly
@@ -30,9 +32,10 @@ class Agent(object):
         self.agent_type = MDP.W_WORKER
 
         # Define the services here!
+        print(SERVICE)
         self.services = {
-            SERVICE.ECHO: se.ServiceExeEcho(agent_name=self.agent_name),
-            SERVICE.SUMNUMS: se.ServiceExeSumNums(agent_name=self.agent_name)
+            SERVICE.ECHO: serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name),
+            SERVICE.SUMNUMS: serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
         }
 
         self.workers: Dict[str, MajorDomoWorker] = {}
@@ -58,7 +61,7 @@ class Agent(object):
 
         # run the service function
         try:
-            service_exe: se.ServiceExeBase = self.services[service]
+            service_exe: se.ServiceExeBase = self.services[service]     # Could be any type of service
             worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
 
             # Create and start new thread
@@ -68,7 +71,7 @@ class Agent(object):
             service_thread.start()
 
             # Kill the worker
-            service_thread.join()
+            service_thread.join(0.0)
             service_exe.worker.destroy()
 
         except KeyError as e:
@@ -79,13 +82,12 @@ class Agent(object):
             self.delete_worker(service)
 
     def run(self, initial_service=None, run_once_flag=True, **kwargs):
-        _run_once_flag = run_once_flag
-        while True:
-            if _run_once_flag:
-                self.start_service(initial_service, **kwargs)
-                _run_once_flag = False
-
-            print(self.service_threads[f'{initial_service}-Thread'].isAlive())
+        self.start_service(service=initial_service, **kwargs)
+        # _run_once_flag = run_once_flag
+        # while True:
+        #     if _run_once_flag:
+        #         self.start_service(initial_service, **kwargs)
+        #         _run_once_flag = False
 
 
 def main():

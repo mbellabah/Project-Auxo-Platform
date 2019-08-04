@@ -1,73 +1,12 @@
-import sys
 import time
 import json
-import inspect
-from typing import List, Tuple
-from collections import namedtuple
-from abc import ABCMeta, abstractmethod
+from typing import List
 
-import auxo_olympus.lib.MDP as MDP
-import auxo_olympus.lib.work_functions as wf
-from auxo_olympus.lib.zhelpers import strip_of_bytes
-from auxo_olympus.lib.mdwrkapi import MajorDomoWorker
-
-# MARK: to be imported from other MDP
-clsmembers: List = []
-s = None
-
-
-# TODO: Standardize the docstrings for the process method in each of these classes
-
-# MARK: Service definitions
-class ServiceExeBase(metaclass=ABCMeta):
-    BIND_WAIT: int = 0.2
-
-    def __init__(self, service_name: str = 'base', agent_name: str = ''):
-        self.service_name = service_name
-        self.worker: MajorDomoWorker = None
-        self.worker_name: str = agent_name + '.' + self.service_name
-        self.peer_port = None
-
-    def run(self, worker: MajorDomoWorker, **kwargs):
-        reply = None
-        while True:
-            request = worker.recv(reply)
-            if request is None:
-                break
-
-            reply = self.process(request, worker, **kwargs)
-
-    @property
-    def leader_bool(self):
-        if self.worker:
-            return self.worker.leader_bool
-
-    @abstractmethod
-    def process(self, *args, **kwargs) -> dict:
-        pass
-
-
-class ServiceExeEcho(ServiceExeBase):
-    """
-    Simple echo service, doesn't need to coordinate with peers!
-    """
-    def __init__(self, service_name: str = 'echo', agent_name: str = ''):
-        super(ServiceExeEcho, self).__init__(service_name, agent_name)
-
-    # Override process
-    def process(self, *args, **kwargs) -> dict:
-        try:
-            request: dict = json.loads(args[0])
-            worker: MajorDomoWorker = args[1]
-        except IndexError:
-            raise IndexError('Error: worker object has not been supplied:')
-
-        # Do some work
-        time.sleep(2)
-        payload = request['payload']
-
-        reply = {'payload': payload, 'origin': self.worker_name}
-        return reply
+import auxo_olympus.lib.utils.MDP as MDP
+import auxo_olympus.lib.services.work_functions as wf
+from auxo_olympus.lib.utils.zhelpers import strip_of_bytes
+from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
+from auxo_olympus.lib.services.service_exe import ServiceExeBase
 
 
 class ServiceExeSumNums(ServiceExeBase):
@@ -130,10 +69,3 @@ class ServiceExeSumNums(ServiceExeBase):
     def work(all_nums: List[int], target: int) -> str:
         out = wf.find_pair_adding_to_target(all_nums, target)
         return str(out)
-
-
-# MARK: All the goodies, this is done to automate getting the available services directly from the class names
-#       i.e. ServiceExeNumberBag --> s.NUMBERBAG = numberbag
-clsmembers: List[Tuple[str, object]] = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-clsmembers: List[str] = [class_name[10:].upper() for class_name, _ in clsmembers if class_name.startswith('Service')]
-s = namedtuple('Services', clsmembers)._make(name.lower() for name in clsmembers)

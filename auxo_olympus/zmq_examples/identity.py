@@ -1,5 +1,5 @@
 import zmq
-from zhelpers import dump
+from utils.zhelpers import dump
 context = zmq.Context()
 
 sink = context.socket(zmq.ROUTER)

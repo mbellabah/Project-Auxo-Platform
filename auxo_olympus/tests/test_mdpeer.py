@@ -1,5 +1,5 @@
 import time
-from auxo_olympus.lib.mdpeer import Peer
+from utils.mdpeer import Peer
 
 
 def test_local_local_inproc():

@@ -2,10 +2,10 @@ import time
 import json
 import threading
 from queue import Queue
-from typing import Dict, Any, List
+from typing import Dict, Any
 
-import auxo_olympus.lib.MDP as MDP
-from auxo_olympus.lib.zhelpers import line, strip_of_bytes
+import auxo_olympus.lib.utils.MDP as MDP
+from auxo_olympus.lib.utils.zhelpers import line, strip_of_bytes
 import zmq
 
 # TODO: Fix the slow joiner issue, where the first message appears to be dropped

@@ -1,5 +1,4 @@
-import sys
-from auxo_olympus.lib.mdcliapi import MajorDomoClient
+from auxo_olympus.lib.entities.mdcliapi import MajorDomoClient
 
 import time
 import json

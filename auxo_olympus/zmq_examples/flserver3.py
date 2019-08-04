@@ -4,7 +4,7 @@ Uses an Router/Router socket but just one thread
 
 import sys
 import zmq
-from zhelpers import dump
+from utils.zhelpers import dump
 
 
 def main():
