@@ -54,28 +54,27 @@ class Agent(object):
 
     def start_service(self, service, **kwargs):
         assert self.available_services, "No services exist!"
+        assert service in self.available_services, f"Can't run {service}"
 
         # run the service function
-        try:
-            service_exe: se.ServiceExeBase = None
-            if service == SERVICE.ECHO:
-                service_exe = serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name)
-            elif service == SERVICE.SUMNUMS:
-                service_exe = serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
+        service_exe = self.service_handler(service)
 
-            worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
-            kwargs.update({'worker': worker})
-            service_exe.set_kwargs(kwargs)
+        worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
+        kwargs.update({'worker': worker})
+        service_exe.set_kwargs(kwargs)
 
-            self.running_services[f'{service}'] = service_exe
-            service_exe.start()
+        self.running_services[f'{service}'] = service_exe
+        service_exe.start()
 
-        except KeyError as e:
-            print(f"{service} behavior is not implemented: {repr(e)}")
+    def service_handler(self, service: str) -> se.ServiceExeBase:
+        service_exe = None
+        if service == SERVICE.ECHO:
+            service_exe = serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name)
 
-        except KeyboardInterrupt:
-            print(f"Killing {service} worker")
-            self.delete_worker(service)
+        elif service == SERVICE.SUMNUMS:
+            service_exe = serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
+
+        return service_exe
 
     def run(self, initial_service=None, run_once_flag=True, **kwargs):
         while True:

@@ -54,6 +54,7 @@ class MajorDomoWorker(object):
         self.poller = zmq.Poller()
 
         self.monitor: ZMQMonitor = None
+        self._debug = False
 
         # Inter-worker peer handling
         ip_addr = get_host_name_ip()
@@ -69,9 +70,10 @@ class MajorDomoWorker(object):
 
         self.reconnect_to_broker()
 
-        # Monitoring
-        event_filter: str = 'NONE'     # 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCPETED]
-        self.monitor.run(event=event_filter)
+        if self._debug:
+            # Monitoring
+            event_filter: str = 'NONE'     # 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCPETED]
+            self.monitor.run(event=event_filter)
 
     def reconnect_to_broker(self):
         """Connect or reconnect to broker"""
@@ -83,7 +85,8 @@ class MajorDomoWorker(object):
             self.worker = self.ctx.socket(zmq.DEALER)
 
             # Setup monitor
-            self.monitor: ZMQMonitor = ZMQMonitor(self.worker)
+            if self._debug:
+                self.monitor: ZMQMonitor = ZMQMonitor(self.worker)
 
             self.worker.identity = self.worker_name
             self.worker.linger = 0
@@ -246,6 +249,7 @@ class MajorDomoWorker(object):
             dump(msg)
 
     def destroy(self):
-        self.monitor.stop()
+        if self._debug:
+            self.monitor.stop()
         self.ctx.destroy(0)
         self.ctx = None
