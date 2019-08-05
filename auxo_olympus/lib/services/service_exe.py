@@ -34,13 +34,14 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
     def run(self):
         assert self.kwargs
         self.worker = self.kwargs.get('worker')
-        reply = None
-        while not self.shutdown_flag.is_set():
-            request = self.worker.recv(reply)
-            if request is None:
-                break
+        if self.worker:
+            reply = None
+            while not self.shutdown_flag.is_set():
+                request = self.worker.recv(reply)
+                if request is None:
+                    break
 
-            reply = self.process(request, self.worker, **self.kwargs)
+                reply = self.process(request, self.worker, **self.kwargs)
 
         print(f'{self.getName()} has been stopped')
 
@@ -61,6 +62,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         """ Quit and cleanup """
         if self.worker:
             self.worker.destroy()
+            self.worker = None
 
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names

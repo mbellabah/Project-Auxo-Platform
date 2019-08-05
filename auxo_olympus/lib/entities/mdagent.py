@@ -36,7 +36,6 @@ class Agent(object):
         self.running_services = {}
 
         self.workers: Dict[str, MajorDomoWorker] = {}
-        self.service_threads: Dict[str, Tuple[se.ServiceExeBase, threading.Thread]] = {}
 
     def create_new_worker(self, worker_name, service):
         """
@@ -87,12 +86,13 @@ class Agent(object):
 
             except KeyboardInterrupt:
                 self.cleanup()
+                break
 
     def cleanup(self):
         for service_name, service in self.running_services.items():
-            service.quit()
             if service.is_alive():
-                service.join(0.0)
+                service.shutdown_flag.set()
+                service.quit()
 
         self.workers.clear()
         self.running_services.clear()

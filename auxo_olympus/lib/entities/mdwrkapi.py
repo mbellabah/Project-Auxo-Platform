@@ -75,33 +75,35 @@ class MajorDomoWorker(object):
 
     def reconnect_to_broker(self):
         """Connect or reconnect to broker"""
-        if self.worker:
-            self.poller.unregister(self.worker)
-            self.worker.close()
+        if self.ctx:
+            if self.worker:
+                self.poller.unregister(self.worker)
+                self.worker.close()
 
-        self.worker = self.ctx.socket(zmq.DEALER)
+            self.worker = self.ctx.socket(zmq.DEALER)
 
-        # Setup monitor
-        self.monitor: ZMQMonitor = ZMQMonitor(self.worker)
+            # Setup monitor
+            self.monitor: ZMQMonitor = ZMQMonitor(self.worker)
 
-        self.worker.identity = self.worker_name
-        self.worker.linger = 0
-        self.worker.connect(self.broker)
-        self.poller.register(self.worker, zmq.POLLIN)
-        if self.verbose:
-            logging.info(f"I: connecting to broker at {self.broker}...")
+            self.worker.identity = self.worker_name
+            self.worker.linger = 0
+            self.worker.connect(self.broker)
+            self.poller.register(self.worker, zmq.POLLIN)
+            if self.verbose:
+                logging.info(f"I: connecting to broker at {self.broker}...")
 
-        # Register service with broker
-        self.send_to_broker(MDP.W_READY, self.service, [])
+            # Register service with broker
+            self.send_to_broker(MDP.W_READY, self.service, [])
 
-        # If liveness hits zero, queue is considered disconnected
-        self.liveness = self.HEARTBEAT_LIVENESS
-        self.heartbeat_at = time.time() + 1e-3 * self.heartbeat
+            # If liveness hits zero, queue is considered disconnected
+            self.liveness = self.HEARTBEAT_LIVENESS
+            self.heartbeat_at = time.time() + 1e-3 * self.heartbeat
 
     def send_to_broker(self, command, option=None, msg=None):
         """Send message to broker.
         If no msg is provided, creates one internally
         """
+        assert self.worker
         if msg is None:
             msg = []
         elif not isinstance(msg, list):
@@ -137,7 +139,7 @@ class MajorDomoWorker(object):
             # Poll socket for a reply, with timeout
             try:
                 items = self.poller.poll(self.timeout)
-            except KeyboardInterrupt:
+            except (zmq.ZMQError, KeyboardInterrupt):
                 break   # Interrupted
 
             if items:
@@ -186,7 +188,6 @@ class MajorDomoWorker(object):
                 self.heartbeat_at = time.time() + 1e-3*self.heartbeat
 
         logging.warning("W: interrupt received, killing worker...")
-        self.monitor.stop()
         return None
 
     def command_handler(self, command: bytes, msg: list):
@@ -245,4 +246,6 @@ class MajorDomoWorker(object):
             dump(msg)
 
     def destroy(self):
+        self.monitor.stop()
         self.ctx.destroy(0)
+        self.ctx = None

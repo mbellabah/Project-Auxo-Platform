@@ -137,6 +137,7 @@ class MajorDomoBroker(threading.Thread):
             self.send_heartbeats()
 
         print("Broker-Thread has been stopped")
+        self.monitor.stop()
 
     def destroy(self):
         """ Disconnect all workers, destroy context """
