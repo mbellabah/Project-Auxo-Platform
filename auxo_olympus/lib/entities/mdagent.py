@@ -82,7 +82,7 @@ class Agent(object):
             try:
                 if run_once_flag:
                     self.start_service(service=initial_service, **kwargs)
-                    run_once_flag = False
+                    break
 
             except KeyboardInterrupt:
                 self.cleanup()

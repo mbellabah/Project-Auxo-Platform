@@ -143,21 +143,18 @@ class ZMQMonitor(object):
         self.t = None
 
     def event_monitor(self, monitor, event='ALL') -> dict:
-        try:
-            while monitor.poll():
-                evt = recv_monitor_message(monitor)
-                evt['description'] = EVENT_MAP[evt['event']]
-                ZMQMonitor.evt = evt        # set class variable
+        while monitor.poll():
+            evt = recv_monitor_message(monitor)
+            evt['description'] = EVENT_MAP[evt['event']]
+            ZMQMonitor.evt = evt        # set class variable
 
-                if event == 'ALL' and evt['description'] not in ["NONE", "EVENT_CLOSED", "EVENT_CONNECT_DELAYED", "EVENT_CONNECT_RETRIED"]:
-                    print("Event:", evt)
-                if event == evt['event']:
-                    print("Event:", evt)
+            if event == 'ALL' and evt['description'] not in ["NONE", "EVENT_CLOSED", "EVENT_CONNECT_DELAYED", "EVENT_CONNECT_RETRIED"]:
+                print("Event:", evt)
+            if event == evt['event']:
+                print("Event:", evt)
 
-                if evt['event'] == zmq.EVENT_MONITOR_STOPPED:
-                    break
-        except zmq.ZMQError:
-            pass
+            if evt['event'] == zmq.EVENT_MONITOR_STOPPED:
+                break
 
         monitor.close()
         self.stop()
@@ -172,11 +169,7 @@ class ZMQMonitor(object):
         self.t.start()
 
     def stop(self):
-        try:
-            self.socket.disable_monitor()
-        except zmq.ZMQError:
-            pass
-
+        self.socket.disable_monitor()
         self.monitor = None
 
 
