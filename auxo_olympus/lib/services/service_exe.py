@@ -1,4 +1,5 @@
 import os
+import threading
 from typing import List
 from collections import namedtuple
 from abc import ABCMeta, abstractmethod
@@ -13,23 +14,35 @@ s = None
 # TODO: Standardize the docstrings for the process method in each of these classes
 
 # MARK: Service definitions
-class ServiceExeBase(metaclass=ABCMeta):
+class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
     BIND_WAIT: int = 0.2
 
     def __init__(self, service_name: str = 'base', agent_name: str = ''):
+        super(ServiceExeBase, self).__init__()
         self.service_name = service_name
         self.agent_name: str = agent_name
+        self.kwargs = None
         self.worker: MajorDomoWorker = None
         self.peer_port = None
 
-    def run(self, worker: MajorDomoWorker, **kwargs):
+        self.name = f'{self.service_name}-Thread'
+        self.shutdown_flag = threading.Event()
+
+    def set_kwargs(self, kwargs):
+        self.kwargs = kwargs
+
+    def run(self):
+        assert self.kwargs
+        self.worker = self.kwargs.get('worker')
         reply = None
-        while True:
-            request = worker.recv(reply)
+        while not self.shutdown_flag.is_set():
+            request = self.worker.recv(reply)
             if request is None:
                 break
 
-            reply = self.process(request, worker, **kwargs)
+            reply = self.process(request, self.worker, **self.kwargs)
+
+        print(f'{self.getName()} has been stopped')
 
     @property
     def leader_bool(self):

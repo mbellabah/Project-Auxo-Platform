@@ -32,10 +32,8 @@ class Agent(object):
         self.agent_type = MDP.W_WORKER
 
         # Define the services here!
-        self.services = {
-            SERVICE.ECHO: serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name),
-            SERVICE.SUMNUMS: serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
-        }
+        self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS]
+        self.running_services = {}
 
         self.workers: Dict[str, MajorDomoWorker] = {}
         self.service_threads: Dict[str, Tuple[se.ServiceExeBase, threading.Thread]] = {}
@@ -56,18 +54,22 @@ class Agent(object):
         worker.destroy()
 
     def start_service(self, service, **kwargs):
-        assert self.services, "No services exist!"
+        assert self.available_services, "No services exist!"
 
         # run the service function
         try:
-            service_exe: se.ServiceExeBase = self.services[service]     # Could be any type of service
-            worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
+            service_exe: se.ServiceExeBase = None
+            if service == SERVICE.ECHO:
+                service_exe = serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name)
+            elif service == SERVICE.SUMNUMS:
+                service_exe = serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
 
-            # Create and start new thread
-            service_thread = threading.Thread(target=service_exe.run, args=(worker,), kwargs=kwargs, name=f'{service}-Thread')
-            self.service_threads[f'{service}-Thread'] = (service_exe, service_thread)
-            service_thread.setDaemon(True)
-            service_thread.start()
+            worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
+            kwargs.update({'worker': worker})
+            service_exe.set_kwargs(kwargs)
+
+            self.running_services[f'{service}'] = service_exe
+            service_exe.start()
 
         except KeyError as e:
             print(f"{service} behavior is not implemented: {repr(e)}")
@@ -87,13 +89,13 @@ class Agent(object):
                 self.cleanup()
 
     def cleanup(self):
-        for _, data in self.service_threads.items():
-            service, thread = data
-            if thread.is_alive():
-                thread.join(0.0)
-            service.quit()      # also kills the worker
+        for service_name, service in self.running_services.items():
+            service.quit()
+            if service.is_alive():
+                service.join(0.0)
 
         self.workers.clear()
+        self.running_services.clear()
 
 
 def main():

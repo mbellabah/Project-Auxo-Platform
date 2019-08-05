@@ -377,7 +377,7 @@ def main():
 
     except ServiceExit:
         broker.shutdown_flag.set()
-        broker.join()
+        broker.join(0.0)
 
     print("Exiting main program")
 
