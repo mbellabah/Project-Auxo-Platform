@@ -21,15 +21,25 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         super(ServiceExeBase, self).__init__()
         self.service_name = service_name
         self.agent_name: str = agent_name
+
         self.kwargs = None
         self.worker: MajorDomoWorker = None
-        self.peer_port = None
+        self.ip = None
+        self.port = None
+        self.own_port = None
+        self.verbose = False
 
+        self.peer_port = None
         self.name = f'{self.service_name}-Thread'
         self.shutdown_flag = threading.Event()
 
     def set_kwargs(self, kwargs):
         self.kwargs = kwargs
+
+        # Set the variables from the kwargs -- kwargs originate from the mdagent class (package)
+        for kwarg_variable in self.kwargs:
+            setattr(self, kwarg_variable, self.kwargs[kwarg_variable])
+        self.kwargs['worker'] = self.create_new_worker(worker_name=self.worker_name, service=self.service_name)
 
     def run(self):
         assert self.kwargs
@@ -44,6 +54,10 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
                 reply = self.process(request, self.worker, **self.kwargs)
 
         print(f'{self.getName()} has been stopped')
+
+    def create_new_worker(self, worker_name, service):
+        self.worker = MajorDomoWorker(f"tcp://{self.ip}:{self.port}", service, self.verbose, worker_name, own_port=self.own_port)
+        return self.worker
 
     @property
     def leader_bool(self):

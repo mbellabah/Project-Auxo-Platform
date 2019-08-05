@@ -2,7 +2,7 @@
 
 C_CLIENT = b"MDPC"
 W_WORKER = b"MDPW"
-
+A_AGENT = b'MDPA'
 
 # MDP/Server commands, as bytes -- these are the base behaviors
 W_READY = b"\001"

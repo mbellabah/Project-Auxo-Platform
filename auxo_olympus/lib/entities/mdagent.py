@@ -29,28 +29,11 @@ class Agent(object):
         self.broker = broker        # Broker's ip addr
         self.port = port            # Broker's port
         self.verbose = verbose
-        self.agent_type = MDP.W_WORKER
+        self.agent_type = MDP.A_AGENT
 
         # Define the services here!
         self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS]
         self.running_services = {}
-
-        self.workers: Dict[str, MajorDomoWorker] = {}
-
-    def create_new_worker(self, worker_name, service):
-        """
-        Creates a new worker for a given service as of now, 1 worker per service
-        :return:
-        """
-        worker = MajorDomoWorker(f"tcp://{self.broker}:{self.port}", service, self.verbose, worker_name, own_port=self.port)
-        self.workers[service] = worker
-        return worker
-
-    def delete_worker(self, service):
-        """ Deletes the worker from all data structures and deletes worker """
-        worker = self.workers.pop(service, None)
-        assert worker is not None
-        worker.destroy()
 
     def start_service(self, service, **kwargs):
         assert self.available_services, "No services exist!"
@@ -59,22 +42,23 @@ class Agent(object):
         # run the service function
         service_exe = self.service_handler(service)
 
-        worker: MajorDomoWorker = self.create_new_worker(worker_name=service_exe.worker_name, service=service_exe.service_name)
-        kwargs.update({'worker': worker})
-        service_exe.set_kwargs(kwargs)
+        package = {
+            'ip': self.broker,
+            'port': self.port,
+            'own_port': self.port,
+            'verbose': True
+        }
+        service_exe.set_kwargs(package)
 
         self.running_services[f'{service}'] = service_exe
         service_exe.start()
 
     def service_handler(self, service: str) -> se.ServiceExeBase:
-        service_exe = None
         if service == SERVICE.ECHO:
-            service_exe = serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name)
+            return serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name)
 
         elif service == SERVICE.SUMNUMS:
-            service_exe = serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
-
-        return service_exe
+            return serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
 
     def run(self, initial_service=None, run_once_flag=True, **kwargs):
         while True:
@@ -93,7 +77,6 @@ class Agent(object):
                 service.shutdown_flag.set()
                 service.quit()
 
-        self.workers.clear()
         self.running_services.clear()
 
 
