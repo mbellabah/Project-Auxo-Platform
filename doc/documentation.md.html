@@ -1,7 +1,7 @@
 
    <meta charset="utf-8" emacsmode="-*- markdown -*-"><link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/journal.css?">
 
-                        **Developing an Architecture for Multiagent Cyber-Physical Systems; the U.S. Electric Grid and the Proper Compensation of Distributed Energy Resources.**
+                        **Developing an Architecture for Multi-agent Cyber-Physical Systems; the U.S. Electric Grid and the Proper Compensation of Distributed Energy Resources.**
                            Project Auxo V. 1.0
                             Enabling the meaningful participation of assets at the edge
 
@@ -20,14 +20,16 @@ Imagine the infrastructure needed if 50% of the power generated is consumed at t
 TODO
 ==================================================================
 - [x] Make the workers within the agent multi-threaded
-- [ ] Make the workers have some expiration -- expiration is controlled by the agent; i.e it is the agent that chooses when to kill workers -- workers are otherwise persisting
-- [ ] Make the workers within an agent
+- [x] Have the workers sit within service containers, which in turn (service containers) sit in agents
+- [x] Make the workers have some expiration -- expiration is controlled by the agent; i.e it is the agent that chooses when to kill workers -- workers are otherwise persisting
+- [x] Make the workers within an agent
 - [ ] Add basic security and authentication features
 - [ ] Write the PAC service
 - [ ] Write the get state of self services  (LED)
 - [ ] Build out the interface to interface with the devices sensors and state
 - [ ] Look into blockchain
 - [ ] Make workers internal processes?
+- [ ] Look into self-islanding capabilities
 
 Desired Qualities and Features of the Platform -- and Various Philosophical Musings
 ===================================================================================
@@ -56,7 +58,7 @@ Clients make service requests. Services can be simple get requests, requests for
 
 Workers are multithreaded processing units that sit within the Agent container. A given worker is tied to a single service, i.e Worker-1 may only provide Service-A. If Agent-1 wanted to respond to several Service-A requests for several clients, it would spawn the equivalent number of Service-A workers. Upon fulfilling the service, the worker saves its state to the local agent, and expires. Worker states and logs are stored locally for 30 days or until the transaction is settled, which ever occurs first. Workers endpoints are defined via `tcp:\\ip_addr:port_num` -- the `port_num` is the only thing that varies among workers in a given agent.
 
-Note that Agent can be thought of a special worker, namely in that it never expires. With that said, all workers, including the agent, when connected to the Apollo broker, heartbeat periodically. The broker aggregates the available services, along with the network address (endpoints) of the relevant workers and passes the worker's peers (those that provide the same service) on each heartbeat acknowledgment. Although a worker could save the endpoints of its peers (and thus know the addressing information of other agents) locally, a worker cannot access a worker in another agent unless their keys match. After the fulfillment of a given service, the Apollo broker will prompt those Agents who participated to change their just-used validation keys. Upon a new service request, and the recreation of the same/similar peer group, the broker shares the network endpoint and key of each peer which is used to validate communication with the worker.
+Note that Agent can be thought of a special worker, namely in that it never expires. With that said, all workers, including the agent, when connected to the Apollo broker, heartbeat periodically. The broker aggregates the available services, along with the network address (endpoints) of the relevant workers and passes the worker's peers (those that provide the same service) on each heartbeat acknowledgment. Although a worker could save the endpoints of its peers (and thus know the addressing information of other agents) locally, a worker cannot access a worker in another agent unless their keys match. After the fulfillment of a given service, the Apollo broker will prompt those Agents who participated to change their just-used validation keys. Upon a new service request, and the re-creation of the same/similar peer group, the broker shares the network endpoint and key of each peer which is used to validate communication with the worker.
 
 *************************************************************************************************************************************
 *                                                                                                                                   *
@@ -89,6 +91,9 @@ Note that Agent can be thought of a special worker, namely in that it never expi
 (2) Client-1's requests are submitted to the broker (Project Auxo Apollo).
 (3) The broker forwards Client-1's requests to those agents who possess workers that can provide said service. The broker randomly elects a leader, Agent-1 for Service-A and Agent-3 for Service-B. Depending on the client's request; namely whether the request requires the coordination of many agents, the broker will indicate that the relevant workers bind to each other in a cooperative peer-to-peer fashion.
 (4) All active workers
+
+
+Leader election: mostly due to the asymmetries in the service-requests -- handles initiating actions such as a broadcast or answer.
 
 Demonstration
 ===================================================================
