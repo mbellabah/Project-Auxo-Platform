@@ -18,7 +18,7 @@ class Peer(object):
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         self.endpoint = endpoint
         self.peer_name: bytes = peer_name.encode("utf8")        # format: A01.echo.peer
-        self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peers': str}
+        self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peer': str}
         self.state_space: Dict[str, Any] = {'other_peer_data': {}}
 
         self.request_queue = Queue()

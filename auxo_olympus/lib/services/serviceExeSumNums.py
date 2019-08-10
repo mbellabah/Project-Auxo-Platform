@@ -17,19 +17,20 @@ class ServiceExeSumNums(ServiceExeBase):
     def __init__(self, service_name: str = 'sumnums', agent_name: str = ''):
         super(ServiceExeSumNums, self).__init__(service_name, agent_name)
 
-    def process(self, *args, **kwargs) -> dict:
+    def process(self, *args) -> dict:
         try:
             request: dict = json.loads(args[0])
             worker: MajorDomoWorker = args[1]
-            self.worker = worker
-            self.peer_port = worker.peer_port
         except IndexError:
             raise IndexError('Error: worker object has not been supplied:')
 
+        self.worker = worker
+        self.peer_port = worker.peer_port
+
         assert self.peer_port, "This service requires peers to exist!"
-        assert kwargs, "Need to provide kwargs"
+        assert self.kwargs, "Need to provide kwargs when initing service"
         target_number: int = int(request['target'])
-        my_summand: int = kwargs['my_summand']
+        my_summand: int = self.kwargs.get('my_summand', 0)
 
         # Populate the peer-ports state-space
         self.peer_port.state_space['my_summand'] = my_summand

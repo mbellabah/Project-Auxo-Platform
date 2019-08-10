@@ -165,7 +165,7 @@ class ZMQMonitor(object):
         print("Starting socket monitor...")
         line()
         self.t = threading.Thread(target=self.event_monitor, args=(self.monitor, event,), name='monitor-Thread')
-        self.t.setDaemon(True)
+        self.t.setDaemon(False)
         self.t.start()
 
     def stop(self):

@@ -46,7 +46,8 @@ class Agent(object):
             'ip': self.broker,
             'port': self.port,
             'own_port': self.port,
-            'verbose': True
+            'verbose': True,
+            'kwargs': kwargs
         }
         service_exe.set_kwargs(package)
 

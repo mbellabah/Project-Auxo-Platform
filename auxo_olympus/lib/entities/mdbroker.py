@@ -304,7 +304,7 @@ class MajorDomoBroker(threading.Thread):
 
         while service.waiting and service.requests:
             request = service.requests.popleft()
-            multiple: bool = json.loads(request[2])["multiple_bool"]    # client may indicate the problem requires coord
+            multiple: bool = json.loads(request[2])["multiple_bool"]    # client may indicate the problem requires coordination
 
             leader_index: int = self.determine_leader(len(service.waiting))
             worker_index: int = 0
@@ -315,10 +315,13 @@ class MajorDomoBroker(threading.Thread):
                 leader_bool: bool = leader_index == worker_index
                 option = {'leader': leader_bool, 'peer_endpoints': strip_of_bytes(self.worker_endpoints[service.name])}
 
+                print("HERE", option['peer_endpoints'])     # FIXME
+
                 # msg:
                 #   Frame 0: client address
                 #   Frame 1: empty
                 #   Frame 2: client request
+
                 self.send_to_worker(worker, MDP.W_REQUEST, option=option, msg=request)
                 worker_index += 1
 
