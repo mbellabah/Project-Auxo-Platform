@@ -139,6 +139,11 @@ class MajorDomoWorker(object):
         self.expect_reply = True
 
         while True:
+            # if the peer-port exists, and the shutdown flag is set, kill worker
+            if self.peer_port:
+                if self.peer_port.shutdown_flag:
+                    break
+
             # Poll socket for a reply, with timeout
             try:
                 items = self.poller.poll(self.timeout)
@@ -191,6 +196,7 @@ class MajorDomoWorker(object):
                 self.heartbeat_at = time.time() + 1e-3*self.heartbeat
 
         logging.warning("W: interrupt received, killing worker...")
+        self.destroy()
         return None
 
     def command_handler(self, command: bytes, msg: list):
@@ -226,7 +232,7 @@ class MajorDomoWorker(object):
                 new_key: bytes = (k+'.peer').encode('utf8')
                 self.peers_endpoints[new_key] = v
 
-            # Construct the peer port for the broker's request
+            # Construct the peer port given that the broker provides endpoints of peers
             if self.peers_endpoints:
                 self.peer_port: PeerPort = PeerPort(
                     endpoint=self.endpoint,

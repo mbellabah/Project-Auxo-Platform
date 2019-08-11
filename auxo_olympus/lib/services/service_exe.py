@@ -7,7 +7,6 @@ from abc import ABCMeta, abstractmethod
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 
 # MARK: to be imported from other MDP
-clsmembers: List = []
 s = None
 
 
@@ -17,25 +16,29 @@ s = None
 class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
     BIND_WAIT: int = 0.2
 
-    def __init__(self, service_name: str = 'base', agent_name: str = ''):
-        super(ServiceExeBase, self).__init__()
-        self.service_name = service_name
-        self.agent_name: str = agent_name
+    def __init__(self, *args):
+        super().__init__()
+        self.args = args
+        self.kwargs = args[1]
 
-        self.kwargs = None
+        self.service_name = 'base'
+        self.agent_name: str = self.args[0]
+
         self.worker: MajorDomoWorker = None
         self.ip = None
         self.port = None
         self.own_port = None
         self.verbose = False
+        self.result_q = None
+        self.inputs = {}     # the owned inputs relevant to the problem
 
         self.peer_port = None
         self.name = f'{self.service_name}-Thread'
         self.shutdown_flag = threading.Event()
 
-    def set_kwargs(self, kwargs):
-        self.kwargs = kwargs
+        self.set_kwargs()
 
+    def set_kwargs(self):
         # Set the variables from the kwargs -- kwargs originate from the mdagent class (package)
         for kwarg_variable in self.kwargs:
             setattr(self, kwarg_variable, self.kwargs[kwarg_variable])
@@ -51,13 +54,13 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
                 if request is None:
                     break
 
-                reply = self.process(request, self.worker, **self.kwargs)
-
-        print(f'{self.getName()} has been stopped')
+                reply = self.process(request, self.worker, self.inputs)
+                if reply:
+                    self.result_q.put('Done')
 
     def create_new_worker(self, worker_name, service):
-        self.worker = MajorDomoWorker(f"tcp://{self.ip}:{self.port}", service, self.verbose, worker_name, own_port=self.own_port)
-        return self.worker
+        worker = MajorDomoWorker(f"tcp://{self.ip}:{self.port}", service, self.verbose, worker_name, own_port=self.own_port)
+        return worker
 
     @property
     def leader_bool(self):
@@ -78,11 +81,16 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
             self.worker.destroy()
             self.worker = None
 
+    def join(self, timeout=None):
+        self.shutdown_flag.set()
+        self.quit()
+        super(ServiceExeBase, self).join(timeout)
+
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names
 curr_dir = os.getcwd()
 if not curr_dir.endswith('services'):
-    curr_dir = os.path.join(curr_dir, '../services')
+    curr_dir = os.path.join(curr_dir, 'auxo_olympus/lib/services')
 dirmembers = os.listdir(curr_dir)
 dirmembers: List[str] = [file_name[10:file_name.find('.py')].upper() for file_name in dirmembers if file_name.startswith('serviceExe')]
 s = namedtuple('Services', dirmembers)._make(name.lower() for name in dirmembers)

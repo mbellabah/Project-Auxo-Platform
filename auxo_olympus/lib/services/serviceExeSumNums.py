@@ -14,8 +14,10 @@ class ServiceExeSumNums(ServiceExeBase):
     Given a target number x from the client, return true if the sum of self with peer add up to target
     request: {'target': <int> 10, ...}
     """
-    def __init__(self, service_name: str = 'sumnums', agent_name: str = ''):
-        super(ServiceExeSumNums, self).__init__(service_name, agent_name)
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.service_name = 'sumnums'
+        self.name = f'{self.service_name}-Thread'
 
     def process(self, *args) -> dict:
         try:
@@ -28,9 +30,9 @@ class ServiceExeSumNums(ServiceExeBase):
         self.peer_port = worker.peer_port
 
         assert self.peer_port, "This service requires peers to exist!"
-        assert self.kwargs, "Need to provide kwargs when initing service"
+        assert self.inputs, "Need to provide kwargs when initing service"
         target_number: int = int(request['target'])
-        my_summand: int = self.kwargs.get('my_summand', 0)
+        my_summand: int = self.inputs.get('my_summand', 0)
 
         # Populate the peer-ports state-space
         self.peer_port.state_space['my_summand'] = my_summand
@@ -41,32 +43,53 @@ class ServiceExeSumNums(ServiceExeBase):
         time.sleep(self.BIND_WAIT)
 
         # Determine whether this given peer is the group's leader
-        if not self.leader_bool:
-            return {}
+        if self.leader_bool:
+            self.request_from_peers(state='my_summand')
 
-        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
-        # leader sends request to all attached peers asking for their info
-        for peer_identity in self.peer_port.peers:
-            request: dict = strip_of_bytes({'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': 'my_summand'})
-            request: bytes = json.dumps(request).encode('utf8')
-            self.peer_port.send(peer_identity, payload=request)
+            # state_space {'other_peer_data': {'A02.sumnums.peer': {'my_summand': 8}}, 'my_summand': 2, 'target_number': 10}
+            all_summands = [my_summand]
+            for peer, data in self.peer_port.state_space['other_peer_data'].items():
+                all_summands.append(data['my_summand'])
 
-        while len(self.peer_port.state_space['other_peer_data']) != len(self.peer_port.peers):
-            # Wait until we receive everything from all th peers
-            pass
+            # DO WORK! Formulate reply
+            payload = self.work(all_nums=all_summands, target=target_number)
+            reply = {'reply': payload, 'origin': self.worker_name}
 
-        # state_space {'other_peer_data': {'A02.sumnums.peer': {'my_summand': 8}}, 'my_summand': 2, 'target_number': 10}
-        all_summands = [my_summand]
-        for peer, data in self.peer_port.state_space['other_peer_data'].items():
-            all_summands.append(data['my_summand'])
+            # inform peers that leader is done and so they can die
+            self.inform_peers()
+        else:
+            reply = {}
 
-        # DO WORK!
-        payload = self.work(all_nums=all_summands, target=target_number)
-
-        reply = {'reply': payload, 'origin': self.worker_name}
         return reply
 
     @staticmethod
     def work(all_nums: List[int], target: int) -> str:
         out = wf.find_pair_adding_to_target(all_nums, target)
         return str(out)
+
+    # P2P suite
+    def request_from_peers(self, state: str):
+        """ For this service, only the leader may request things """
+        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
+
+        # leader sends request to all attached peers asking for their info
+        for peer_identity in self.peer_port.peers:
+            request: dict = strip_of_bytes(
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}
+            )
+            request: bytes = json.dumps(request).encode('utf8')
+            self.peer_port.send(peer_identity, payload=request)
+
+        while len(self.peer_port.state_space['other_peer_data']) != len(self.peer_port.peers):
+            # Wait until we receive everything from all the peers
+            pass
+
+    def inform_peers(self):
+        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
+
+        for peer_identity in self.peer_port.peers:
+            info: dict = strip_of_bytes(
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_DISCONNECT, 'info': 'DONE'}
+            )
+            info: bytes = json.dumps(info).encode('utf8')
+            self.peer_port.send(peer_identity, payload=info)

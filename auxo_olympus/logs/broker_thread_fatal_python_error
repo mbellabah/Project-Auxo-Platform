@@ -1,0 +1,13 @@
+Broker-Thread has been stopped
+Event: {'event': 1024, 'value': 0, 'endpoint': b'', 'description': 'EVENT_MONITOR_STOPPED'}
+Fatal Python error: could not acquire lock for <_io.BufferedWriter name='<stdout>'> at interpreter shutdown, possibly due to daemon threads
+
+Thread 0x000070000fddc000 (most recent call first):
+  File "/Users/bellabah/Desktop/Auxo/venv/lib/python3.7/site-packages/auxo_olympus/lib/utils/zhelpers.py", line 152 in event_monitor
+  File "/usr/local/Cellar/python/3.7.4/Frameworks/Python.framework/Versions/3.7/lib/python3.7/threading.py", line 870 in run
+  File "/usr/local/Cellar/python/3.7.4/Frameworks/Python.framework/Versions/3.7/lib/python3.7/threading.py", line 926 in _bootstrap_inner
+  File "/usr/local/Cellar/python/3.7.4/Frameworks/Python.framework/Versions/3.7/lib/python3.7/threading.py", line 890 in _bootstrap
+
+Current thread 0x0000000112c825c0 (most recent call first):
+Abort trap: 6
+(venv) Bellas-MacBook-Pro:entities bellabah$

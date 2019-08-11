@@ -112,7 +112,7 @@ class Peer(object):
         :return:
         """
         thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,), name='Thread-recv')
-        thread.setDaemon(True)
+        thread.setDaemon(False)
         thread.start()
 
     def send(self, peer_ident: bytes, payload: bytes):
@@ -142,12 +142,12 @@ class Peer(object):
         """ Destroy context and close the socket """
         # FIXME: Destroy the peer object/port cleanly
         self.state_space = {'other_peer_data': {}}
-        pass
 
 
 class PeerPort(Peer):
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         super(PeerPort, self).__init__(endpoint, peer_name, peers, verbose)
+        self.shutdown_flag: bool = False
 
     # override process_queue
     def process_queue_thread(self):
@@ -187,6 +187,12 @@ class PeerPort(Peer):
             requested_state: str = msg['request_state']
             requested_state_data: str = msg['request_data']
             self.state_space['other_peer_data'][peer_identity.decode('utf8')] = {requested_state: requested_state_data}
+
+        elif command == MDP.W_DISCONNECT:
+            info: str = msg['info']
+            if info == 'DONE':
+                self.stop()
+                self.shutdown_flag = True
 
     def get_request_queue(self) -> Queue:
         return self.request_queue
