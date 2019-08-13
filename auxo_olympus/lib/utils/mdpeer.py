@@ -73,7 +73,7 @@ class Peer(object):
 
     def process_queue(self):
         thread = threading.Thread(target=self.process_queue_thread, name='Thread-request-queue')
-        thread.setDaemon(False)
+        thread.setDaemon(True)
         thread.start()
 
     def recv_thread(self, peer_endpoint: str):
@@ -113,7 +113,7 @@ class Peer(object):
         :return:
         """
         thread = threading.Thread(target=self.recv_thread, args=(peer_endpoint,), name='Thread-recv')
-        thread.setDaemon(False)
+        thread.setDaemon(True)
         thread.start()
 
     def send(self, peer_ident: bytes, payload: bytes):
