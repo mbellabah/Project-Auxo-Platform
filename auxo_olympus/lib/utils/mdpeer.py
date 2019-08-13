@@ -1,3 +1,4 @@
+import zmq
 import time
 import json
 import threading
@@ -6,7 +7,6 @@ from typing import Dict, Any
 
 import auxo_olympus.lib.utils.MDP as MDP
 from auxo_olympus.lib.utils.zhelpers import line, strip_of_bytes
-import zmq
 
 # TODO: Fix the slow joiner issue, where the first message appears to be dropped
 
@@ -20,6 +20,7 @@ class Peer(object):
         self.peer_name: bytes = peer_name.encode("utf8")        # format: A01.echo.peer
         self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peer': str}
         self.state_space: Dict[str, Any] = {'other_peer_data': {}}
+        self.shutdown_flag: bool = False
 
         self.request_queue = Queue()
         self.verbose = verbose
@@ -141,13 +142,13 @@ class Peer(object):
     def stop(self):
         """ Destroy context and close the socket """
         # FIXME: Destroy the peer object/port cleanly
+        self.shutdown_flag = True
         self.state_space = {'other_peer_data': {}}
 
 
 class PeerPort(Peer):
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         super(PeerPort, self).__init__(endpoint, peer_name, peers, verbose)
-        self.shutdown_flag: bool = False
 
     # override process_queue
     def process_queue_thread(self):
@@ -192,7 +193,6 @@ class PeerPort(Peer):
             info: str = msg['info']
             if info == 'DONE':
                 self.stop()
-                self.shutdown_flag = True
 
     def get_request_queue(self) -> Queue:
         return self.request_queue

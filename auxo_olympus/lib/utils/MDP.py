@@ -11,6 +11,10 @@ W_REPLY = b"\003"
 W_HEARTBEAT = b"\004"
 W_DISCONNECT = b"\005"
 
+# Status
+SUCCESS = 'SUCCESS'
+FAIL = 'FAIL'
+
 commands = [None, "READY", "REQUEST", "REPLY", "HEARTBEAT", "DISCONNECT"]
 
 

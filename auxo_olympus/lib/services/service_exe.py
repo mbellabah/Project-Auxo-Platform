@@ -5,6 +5,7 @@ from collections import namedtuple
 from abc import ABCMeta, abstractmethod
 
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
+from auxo_olympus.lib.utils import MDP
 
 # MARK: to be imported from other MDP
 s = None
@@ -34,7 +35,6 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
         self.peer_port = None
         self.name = f'{self.service_name}-Thread'
-        self.shutdown_flag = threading.Event()
 
         self.set_kwargs()
 
@@ -47,16 +47,20 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
     def run(self):
         assert self.kwargs
         self.worker = self.kwargs.get('worker')
-        if self.worker:
-            reply = None
-            while not self.shutdown_flag.is_set():
-                request = self.worker.recv(reply)
-                if request is None:
-                    break
+        status = MDP.SUCCESS
 
+        if self.worker:
+            request = self.worker.recv(reply=None)
+            try:
                 reply = self.process(request, self.worker, self.inputs)
-                if reply:
-                    self.result_q.put('Done')
+            except Exception as e:
+                status = MDP.FAIL
+                print(f"Error: {repr(e)}")
+
+            _ = self.worker.recv(reply)     # send reply, don't get msg back
+
+            assert self.peer_port.shutdown_flag
+            self.result_q.put(status)       # how we signal to the main agent that this service-exe is complete
 
     def create_new_worker(self, worker_name, service):
         worker = MajorDomoWorker(f"tcp://{self.ip}:{self.port}", service, self.verbose, worker_name, own_port=self.own_port)
@@ -82,7 +86,6 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
             self.worker = None
 
     def join(self, timeout=None):
-        self.shutdown_flag.set()
         self.quit()
         super(ServiceExeBase, self).join(timeout)
 

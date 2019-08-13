@@ -1,3 +1,20 @@
+"""
+Given a target number x from the client, return true if the sum of self with peer add up to target
+request: {'target': <int> 10, ...}
+
+Expected Client Request
+input: {
+    "multiple_bool": <bool>      Coordination required?
+    "target": <int>              Target value to add up to
+}
+
+Provided Agent Input
+input: {
+    "my_summand": <int>
+}
+
+"""
+
 import time
 import json
 from typing import List
@@ -10,10 +27,6 @@ from auxo_olympus.lib.services.service_exe import ServiceExeBase
 
 
 class ServiceExeSumNums(ServiceExeBase):
-    """
-    Given a target number x from the client, return true if the sum of self with peer add up to target
-    request: {'target': <int> 10, ...}
-    """
     def __init__(self, *args):
         super().__init__(*args)
         self.service_name = 'sumnums'
@@ -42,7 +55,6 @@ class ServiceExeSumNums(ServiceExeBase):
         self.peer_port.tie_to_peers()
         time.sleep(self.BIND_WAIT)
 
-        # Determine whether this given peer is the group's leader
         if self.leader_bool:
             self.request_from_peers(state='my_summand')
 
@@ -56,9 +68,10 @@ class ServiceExeSumNums(ServiceExeBase):
             reply = {'reply': payload, 'origin': self.worker_name}
 
             # inform peers that leader is done and so they can die
-            self.inform_peers()
+            self.inform_peers()     # Peers that are not leaders will shutdown themselves
+            self.peer_port.stop()
         else:
-            reply = {}
+            reply = None
 
         return reply
 

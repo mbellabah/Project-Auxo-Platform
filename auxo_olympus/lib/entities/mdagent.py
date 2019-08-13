@@ -37,7 +37,7 @@ class Agent(object):
         self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS]
         self.running_services: Dict[str, se.ServiceExeBase] = {}
 
-    def start_service(self, service, result_q, **kwargs) -> se.ServiceExeBase:
+    def start_service(self, service, **kwargs) -> se.ServiceExeBase:
         assert self.available_services, "No services exist!"
         assert service in self.available_services, f"Can't run {service}"
 
@@ -78,11 +78,15 @@ class Agent(object):
             except KeyboardInterrupt:
                 break
         else:
-            print(f'{initial_service} Complete!')
-            _ = self.result_q.get()
+            status = self.result_q.get()     # pop from queue
+            if status == MDP.SUCCESS:
+                print(f'{initial_service} successfully completed :)')
+            elif status == MDP.FAIL:
+                print(f'{initial_service} failed :(')
             self.cleanup()
 
     def cleanup(self):
+        # FIXME: Cleanup is not closing all the threads
         for service_name, service in self.running_services.items():
             if service.is_alive():
                 service.join(0.0)

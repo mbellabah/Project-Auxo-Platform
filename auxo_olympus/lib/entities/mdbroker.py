@@ -221,11 +221,16 @@ class MajorDomoBroker(threading.Thread):
         if worker.service is not None:
             try:
                 worker.service.waiting.remove(worker)
-            except ValueError:
+            except (ValueError, KeyError):
+                # pass error silently FIXME: Potential error because we kill the worker before it can be remove?
                 pass
 
         self.workers.pop(worker.identity)
-        self.worker_endpoints[worker.service.name].pop(worker.worker_name)
+        try:
+            self.worker_endpoints[worker.service.name].pop(worker.worker_name)
+        except KeyError:
+            # worker probably has already been killed # FIXME: Confirm this
+            pass
 
     def require_worker(self, address):
         """ Finds the worker (creates if necessary) """
@@ -321,8 +326,6 @@ class MajorDomoBroker(threading.Thread):
 
                 leader_bool: bool = leader_index == worker_index
                 option = {'leader': leader_bool, 'peer_endpoints': strip_of_bytes(self.worker_endpoints[service.name])}
-
-                print("HERE", option['peer_endpoints'])     # FIXME
 
                 # msg:
                 #   Frame 0: client address
