@@ -4,7 +4,6 @@ import random
 import logging
 import argparse
 import signal
-import threading
 from collections import deque, defaultdict
 from binascii import hexlify, unhexlify
 
@@ -12,7 +11,6 @@ import zmq
 
 # Local
 from auxo_olympus.lib.utils import MDP
-from auxo_olympus.lib.utils.helpers import service_shutdown, ServiceExit
 from auxo_olympus.lib.utils.zhelpers import dump, ensure_is_bytes, strip_of_bytes, ZMQMonitor, EVENT_MAP
 
 # NOTE: Make sure the broker is as stateless and lean as possible. The compute and much of the processing should be at
@@ -59,7 +57,7 @@ class Worker(object):
         self.endpoint = endpoint
 
 
-class MajorDomoBroker(threading.Thread):
+class MajorDomoBroker():
     """ Majordomo protocol broker"""
     INTERNAL_SERVICE_PREFIX = b"mmi."
     HEARTBEAT_LIVENESS = 4
@@ -79,11 +77,7 @@ class MajorDomoBroker(threading.Thread):
 
     def __init__(self, verbose=False):
         """ Initialize the broker state """
-        super(MajorDomoBroker, self).__init__()
         self.verbose = verbose
-        self.name = 'Broker-Thread'
-        self.shutdown_flag = threading.Event()
-
         self.services = {}
         self.workers = {}
         self.waiting = []
@@ -105,18 +99,14 @@ class MajorDomoBroker(threading.Thread):
 
     def run(self):
         """ Main broker work happens here -- mediates between the client and the worker socket """
-        print("Broker-Thread started!")
 
         # Start the socket monitor
         if self._debug:
             event_filter: str = 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCEPTED]
             self.monitor.run(event=event_filter)
 
-        while not self.shutdown_flag.is_set():
-            try:
-                items = self.poller.poll(self.HEARTBEAT_INTERVAL)
-            except KeyboardInterrupt:
-                pass        # FIXME: May change this to a keyboard interrupt
+        while True:
+            items = self.poller.poll(self.HEARTBEAT_INTERVAL)
 
             if items:
                 msg = self.socket.recv_multipart()
@@ -139,10 +129,6 @@ class MajorDomoBroker(threading.Thread):
 
             self.purge_workers()
             self.send_heartbeats()
-
-        print("Broker-Thread has been stopped")
-        if self._debug:
-            self.monitor.stop()
 
     def destroy(self):
         """ Disconnect all workers, destroy context """
@@ -366,6 +352,13 @@ class MajorDomoBroker(threading.Thread):
         """
         return random.randint(0, num_workers-1)
 
+    def cleanup(self):
+        if self._debug:
+            self.monitor.stop()
+
+        self.socket.close()
+        self.ctx.destroy()
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -379,24 +372,18 @@ def main():
 
     print(args)
 
-    # Register the signal handlers
-    signal.signal(signal.SIGTERM, service_shutdown)
-    signal.signal(signal.SIGINT, service_shutdown)
-
     print("Starting main program")
 
     """ Create and start new broker """
     broker = MajorDomoBroker(verbose)
     broker.bind(f"tcp://*:{port}")
+
     try:
-        broker.start()
-
-        while True:
-            pass
-
-    except ServiceExit:
-        broker.shutdown_flag.set()
-        broker.join(0.0)
+        print("Broker started")
+        broker.run()
+    except KeyboardInterrupt:
+        print("Broker has been stopped")
+        broker.cleanup()
 
     print("Exiting main program")
 

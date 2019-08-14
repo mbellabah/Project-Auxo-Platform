@@ -1,3 +1,5 @@
+########### RESOLVED ################
+
 Broker-Thread has been stopped
 Event: {'event': 1024, 'value': 0, 'endpoint': b'', 'description': 'EVENT_MONITOR_STOPPED'}
 Fatal Python error: could not acquire lock for <_io.BufferedWriter name='<stdout>'> at interpreter shutdown, possibly due to daemon threads
