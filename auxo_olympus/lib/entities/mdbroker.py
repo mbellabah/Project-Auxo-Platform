@@ -81,6 +81,7 @@ class MajorDomoBroker(threading.Thread):
         """ Initialize the broker state """
         super(MajorDomoBroker, self).__init__()
         self.verbose = verbose
+        self.name = 'Broker-Thread'
         self.shutdown_flag = threading.Event()
 
         self.services = {}
@@ -316,7 +317,7 @@ class MajorDomoBroker(threading.Thread):
 
         while service.waiting and service.requests:
             request = service.requests.popleft()
-            multiple: bool = json.loads(request[2])["multiple_bool"]    # client may indicate the problem requires coordination
+            multiple: bool = json.loads(request[2]).get("multiple_bool", False)    # client may indicate the problem requires coord
 
             leader_index: int = self.determine_leader(len(service.waiting))
             worker_index: int = 0
@@ -358,7 +359,11 @@ class MajorDomoBroker(threading.Thread):
 
     @staticmethod
     def determine_leader(num_workers: int) -> int:
-        """ Picks worker at random """
+        """
+        Leader election happens because of asymmetries -- as in initiating actions such
+        as broadcasts or singular replies. This particular method picks a worker
+        to be a leader at random
+        """
         return random.randint(0, num_workers-1)
 
 
