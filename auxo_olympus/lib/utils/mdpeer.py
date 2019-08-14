@@ -66,7 +66,6 @@ class Peer(object):
                     print(self.peer_name, "Queue:", list(self.request_queue.queue))
                 current_request = self.request_queue.get()
 
-                # Do some processing on current_request
                 time.sleep(0.1)
 
             time.sleep(1)

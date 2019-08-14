@@ -72,26 +72,38 @@ class Agent(object):
             raise Exception(f'Something went wrong {repr(e)}')
 
         assert curr_service
-        while self.result_q.empty():
-            try:
+
+        try:
+            while self.result_q.empty():
                 pass
-            except KeyboardInterrupt:
-                break
+            else:
+                status = self.result_q.get()     # pop from queue
+
+                if status == MDP.SUCCESS:
+                    print(f'{initial_service} successfully completed :)')
+                elif status == MDP.FAIL:
+                    print(f'{initial_service} failed :(')
+
+                assert self.result_q.empty()
+
+        except KeyboardInterrupt:
+            pass
+
+        self.cleanup(service_name=initial_service)
+
+    def cleanup(self, service_name: str):
+        if service_name == 'ALL':
+            for service_name, service in self.running_services.items():
+                if service.is_alive():
+                    service.join(0.0)
+
+            self.running_services.clear()
         else:
-            status = self.result_q.get()     # pop from queue
-            if status == MDP.SUCCESS:
-                print(f'{initial_service} successfully completed :)')
-            elif status == MDP.FAIL:
-                print(f'{initial_service} failed :(')
-            self.cleanup()
+            curr_service = self.running_services[service_name]
+            if curr_service.is_alive():
+                curr_service.join(0.0)
 
-    def cleanup(self):
-        # FIXME: Cleanup is not closing all the threads
-        for service_name, service in self.running_services.items():
-            if service.is_alive():
-                service.join(0.0)
-
-        self.running_services.clear()
+            self.running_services.pop(service_name)
 
 
 def main():

@@ -44,6 +44,7 @@ class ServiceExeSumNums(ServiceExeBase):
 
         assert self.peer_port, "This service requires peers to exist!"
         assert self.inputs, "Need to provide kwargs when initing service"
+
         target_number: int = int(request['target'])
         my_summand: int = self.inputs.get('my_summand', 0)
 

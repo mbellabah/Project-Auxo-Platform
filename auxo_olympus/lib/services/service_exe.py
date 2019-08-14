@@ -35,6 +35,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
         self.peer_port = None
         self.name = f'{self.service_name}-Thread'
+        self.daemon = True
 
         self.set_kwargs()
 
@@ -50,6 +51,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         status = MDP.SUCCESS
 
         if self.worker:
+            reply = None
             request = self.worker.recv(reply=None)
             try:
                 reply = self.process(request, self.worker, self.inputs)
