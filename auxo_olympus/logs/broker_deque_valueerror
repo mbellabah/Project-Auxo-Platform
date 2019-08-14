@@ -1,0 +1,15 @@
+----------------------------------------
+----------------------------------------
+2019-08-11 14:26:36 I: deleting expired worker: b'4130322e73756d6e756d73'
+2019-08-11 14:26:36 Deleting worker
+Exception in thread Thread-1:
+Traceback (most recent call last):
+  File "/usr/local/Cellar/python/3.7.4/Frameworks/Python.framework/Versions/3.7/lib/python3.7/threading.py", line 926, in _bootstrap_inner
+    self.run()
+  File "/Users/bellabah/Desktop/Auxo/Project-Auxo-Platform/auxo_olympus/lib/entities/mdbroker.py", line 139, in run
+    self.purge_workers()
+  File "/Users/bellabah/Desktop/Auxo/Project-Auxo-Platform/auxo_olympus/lib/entities/mdbroker.py", line 289, in purge_workers
+    self.delete_worker(w, False)
+  File "/Users/bellabah/Desktop/Auxo/Project-Auxo-Platform/auxo_olympus/lib/entities/mdbroker.py", line 222, in delete_worker
+    worker.service.waiting.remove(worker)
+ValueError: deque.remove(x): x not in deque

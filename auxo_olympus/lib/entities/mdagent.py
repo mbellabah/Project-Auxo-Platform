@@ -1,6 +1,6 @@
 import json
+import queue
 import argparse
-import threading
 from typing import Dict, Tuple
 
 from auxo_olympus.lib.utils import MDP
@@ -31,51 +31,65 @@ class Agent(object):
         self.verbose = verbose
         self.agent_type = MDP.A_AGENT
 
+        self.result_q = queue.Queue()
+
         # Define the services here!
         self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS]
-        self.running_services = {}
+        self.running_services: Dict[str, se.ServiceExeBase] = {}
 
-    def start_service(self, service, **kwargs):
+    def start_service(self, service, **kwargs) -> se.ServiceExeBase:
         assert self.available_services, "No services exist!"
         assert service in self.available_services, f"Can't run {service}"
-
-        # run the service function
-        service_exe = self.service_handler(service)
 
         package = {
             'ip': self.broker,
             'port': self.port,
             'own_port': self.port,
-            'verbose': True
+            'verbose': True,
+            'result_q': self.result_q,
+            'inputs': kwargs
         }
-        service_exe.set_kwargs(package)
+        service_exe = self.service_handler(service, kwargs=package)
 
-        self.running_services[f'{service}'] = service_exe
+        service_exe.set_kwargs()
+
+        self.running_services[service] = service_exe
         service_exe.start()
+        return service_exe
 
-    def service_handler(self, service: str) -> se.ServiceExeBase:
+    def service_handler(self, service: str, kwargs) -> se.ServiceExeBase:
         if service == SERVICE.ECHO:
-            return serviceExeEcho.ServiceExeEcho(agent_name=self.agent_name)
+            return serviceExeEcho.ServiceExeEcho(self.agent_name)
 
         elif service == SERVICE.SUMNUMS:
-            return serviceExeSumNums.ServiceExeSumNums(agent_name=self.agent_name)
+            return serviceExeSumNums.ServiceExeSumNums(self.agent_name, kwargs)
 
-    def run(self, initial_service=None, run_once_flag=True, **kwargs):
-        while True:
+    def run(self, initial_service=None, **kwargs):
+        """ Runs a single service to completion/interruption """
+        try:
+            curr_service = self.start_service(service=initial_service, result_q=self.result_q, **kwargs)
+        except Exception as e:
+            raise Exception(f'Something went wrong {repr(e)}')
+
+        assert curr_service
+        while self.result_q.empty():
             try:
-                if run_once_flag:
-                    self.start_service(service=initial_service, **kwargs)
-                    break
-
+                pass
             except KeyboardInterrupt:
-                self.cleanup()
                 break
+        else:
+            status = self.result_q.get()     # pop from queue
+            if status == MDP.SUCCESS:
+                print(f'{initial_service} successfully completed :)')
+            elif status == MDP.FAIL:
+                print(f'{initial_service} failed :(')
+            self.cleanup()
 
     def cleanup(self):
+        # FIXME: Cleanup is not closing all the threads
         for service_name, service in self.running_services.items():
             if service.is_alive():
-                service.shutdown_flag.set()
-                service.quit()
+                service.join(0.0)
 
         self.running_services.clear()
 

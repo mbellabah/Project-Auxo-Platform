@@ -9,8 +9,9 @@ class ServiceExeEcho(ServiceExeBase):
     """
     Simple echo service, doesn't need to coordinate with peers!
     """
-    def __init__(self, service_name: str = 'echo', agent_name: str = ''):
-        super(ServiceExeEcho, self).__init__(service_name, agent_name)
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.service_name = 'echo'
 
     # Override process
     def process(self, *args, **kwargs) -> dict:

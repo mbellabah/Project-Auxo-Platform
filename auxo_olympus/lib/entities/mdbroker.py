@@ -94,7 +94,9 @@ class MajorDomoBroker(threading.Thread):
         self.poller = zmq.Poller()
         self.poller.register(self.socket, zmq.POLLIN)
 
-        self.monitor: ZMQMonitor = ZMQMonitor(self.socket)
+        self._debug = False
+        if self._debug:
+            self.monitor: ZMQMonitor = ZMQMonitor(self.socket)
 
         # Arranged by service, then ip
         self.worker_endpoints = defaultdict(dict)      # stores all the physical ip of the workers as seen from broker
@@ -106,8 +108,9 @@ class MajorDomoBroker(threading.Thread):
         print("Broker-Thread started!")
 
         # Start the socket monitor
-        event_filter: str = 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCEPTED]
-        self.monitor.run(event=event_filter)
+        if self._debug:
+            event_filter: str = 'ALL' if self.verbose else EVENT_MAP[zmq.EVENT_ACCEPTED]
+            self.monitor.run(event=event_filter)
 
         while not self.shutdown_flag.is_set():
             try:
@@ -138,7 +141,8 @@ class MajorDomoBroker(threading.Thread):
             self.send_heartbeats()
 
         print("Broker-Thread has been stopped")
-        self.monitor.stop()
+        if self._debug:
+            self.monitor.stop()
 
     def destroy(self):
         """ Disconnect all workers, destroy context """
@@ -216,10 +220,18 @@ class MajorDomoBroker(threading.Thread):
             self.send_to_worker(worker, MDP.W_DISCONNECT, None, None)
 
         if worker.service is not None:
-            worker.service.waiting.remove(worker)
+            try:
+                worker.service.waiting.remove(worker)
+            except (ValueError, KeyError):
+                # pass error silently FIXME: Potential error because we kill the worker before it can be remove?
+                pass
 
         self.workers.pop(worker.identity)
-        self.worker_endpoints[worker.service.name].pop(worker.worker_name)
+        try:
+            self.worker_endpoints[worker.service.name].pop(worker.worker_name)
+        except KeyError:
+            # worker probably has already been killed # FIXME: Confirm this
+            pass
 
     def require_worker(self, address):
         """ Finds the worker (creates if necessary) """
@@ -320,6 +332,7 @@ class MajorDomoBroker(threading.Thread):
                 #   Frame 0: client address
                 #   Frame 1: empty
                 #   Frame 2: client request
+
                 self.send_to_worker(worker, MDP.W_REQUEST, option=option, msg=request)
                 worker_index += 1
 
@@ -379,7 +392,7 @@ def main():
         broker.start()
 
         while True:
-            time.sleep(0.5)
+            pass
 
     except ServiceExit:
         broker.shutdown_flag.set()

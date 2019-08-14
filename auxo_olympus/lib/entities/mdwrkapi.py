@@ -125,8 +125,6 @@ class MajorDomoWorker(object):
 
     def recv(self, reply=None):
         """Send reply, if any, to broker and wait for next request."""
-        # Format and send the reply if we were provided one
-        assert reply is not None or not self.expect_reply
 
         if reply is not None:
             assert self.reply_to is not None
@@ -136,9 +134,11 @@ class MajorDomoWorker(object):
                 reply = [self.reply_to, ''] + [reply]
             self.send_to_broker(MDP.W_REPLY, msg=reply)
 
-        self.expect_reply = True
-
         while True:
+            # Determine whether the peer-port is dead, break if so
+            if not self.peer_port_running():
+                break
+
             # Poll socket for a reply, with timeout
             try:
                 items = self.poller.poll(self.timeout)
@@ -191,6 +191,7 @@ class MajorDomoWorker(object):
                 self.heartbeat_at = time.time() + 1e-3*self.heartbeat
 
         logging.warning("W: interrupt received, killing worker...")
+        self.destroy()
         return None
 
     def command_handler(self, command: bytes, msg: list):
@@ -226,13 +227,13 @@ class MajorDomoWorker(object):
                 new_key: bytes = (k+'.peer').encode('utf8')
                 self.peers_endpoints[new_key] = v
 
-            # Construct the peer port for the broker's request
+            # Construct the peer port given that the broker provides endpoints of peers
             if self.peers_endpoints:
                 self.peer_port: PeerPort = PeerPort(
                     endpoint=self.endpoint,
                     peer_name=self.worker_name.decode('utf8') + '.peer',
                     peers=self.peers_endpoints,
-                    verbose=True
+                    verbose=False
                 )
 
             return actual_msg  # We have a request to process
@@ -247,6 +248,12 @@ class MajorDomoWorker(object):
         else:
             logging.error("E: invalid input message: ")
             dump(msg)
+
+    def peer_port_running(self) -> bool:
+        """ True if the peer-port is still running """
+        if self.peer_port:
+            return not self.peer_port.shutdown_flag
+        return True
 
     def destroy(self):
         if self._debug:

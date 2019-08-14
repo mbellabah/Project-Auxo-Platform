@@ -21,7 +21,7 @@ class Client(object):
         self.client = MajorDomoClient(f"tcp://{self.broker}:{self.port}", verbose, client_name=self.client_name)
 
     def run(self, service: str, **kwargs):
-        num_requests: int = kwargs['num_requests']
+        num_requests: int = kwargs.get('num_requests', 1)
 
         for i in range(num_requests):
             request = json.dumps(kwargs)    # FIXME: May have to remove some extra client information here!
