@@ -19,9 +19,7 @@ import time
 import json
 from typing import List
 
-import auxo_olympus.lib.utils.MDP as MDP
-import auxo_olympus.lib.services.work_functions as wf
-from auxo_olympus.lib.utils.zhelpers import strip_of_bytes
+import auxo_olympus.lib.services.serviceExeSumNums.work_functions as wf
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 from auxo_olympus.lib.services.service_exe import ServiceExeBase
 
@@ -45,6 +43,7 @@ class ServiceExeSumNums(ServiceExeBase):
         assert self.peer_port, "This service requires peers to exist!"
         assert self.inputs, "Need to provide kwargs when initing service"
 
+        # Extract relevant details from the requests and inputs
         target_number: int = int(request['target'])
         my_summand: int = self.inputs.get('my_summand', 0)
 
@@ -81,29 +80,3 @@ class ServiceExeSumNums(ServiceExeBase):
         out = wf.find_pair_adding_to_target(all_nums, target)
         return str(out)
 
-    # P2P suite
-    def request_from_peers(self, state: str):
-        """ For this service, only the leader may request things """
-        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
-
-        # leader sends request to all attached peers asking for their info
-        for peer_identity in self.peer_port.peers:
-            request: dict = strip_of_bytes(
-                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}
-            )
-            request: bytes = json.dumps(request).encode('utf8')
-            self.peer_port.send(peer_identity, payload=request)
-
-        while len(self.peer_port.state_space['other_peer_data']) != len(self.peer_port.peers):
-            # Wait until we receive everything from all the peers
-            pass
-
-    def inform_peers(self):
-        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
-
-        for peer_identity in self.peer_port.peers:
-            info: dict = strip_of_bytes(
-                {'origin': self.peer_port.peer_name, 'command': MDP.W_DISCONNECT, 'info': 'DONE'}
-            )
-            info: bytes = json.dumps(info).encode('utf8')
-            self.peer_port.send(peer_identity, payload=info)

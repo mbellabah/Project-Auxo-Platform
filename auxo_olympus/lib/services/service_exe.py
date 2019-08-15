@@ -1,9 +1,11 @@
 import os
+import json
 import threading
 from typing import List
 from collections import namedtuple
 from abc import ABCMeta, abstractmethod
 
+from auxo_olympus.lib.utils.zhelpers import strip_of_bytes
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 from auxo_olympus.lib.utils import MDP
 
@@ -61,7 +63,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
             _ = self.worker.recv(reply)     # send reply, don't get msg back
 
-            assert self.peer_port.shutdown_flag
+            # assert self.peer_port.shutdown_flag
             self.result_q.put(status)       # how we signal to the main agent that this service-exe is complete
 
     def create_new_worker(self, worker_name, service):
@@ -81,6 +83,33 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
     def process(self, *args, **kwargs) -> dict:
         pass
 
+    # P2P suite
+    def request_from_peers(self, state: str):
+        """ For this service, only the leader may request things """
+        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
+
+        # leader sends request to all attached peers asking for their info
+        for peer_identity in self.peer_port.peers:
+            request: dict = strip_of_bytes(
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}
+            )
+            request: bytes = json.dumps(request).encode('utf8')
+            self.peer_port.send(peer_identity, payload=request)
+
+        while len(self.peer_port.state_space['other_peer_data']) != len(self.peer_port.peers):
+            # Wait until we receive everything from all the peers
+            pass
+
+    def inform_peers(self):
+        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
+
+        for peer_identity in self.peer_port.peers:
+            info: dict = strip_of_bytes(
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_DISCONNECT, 'info': 'DONE'}
+            )
+            info: bytes = json.dumps(info).encode('utf8')
+            self.peer_port.send(peer_identity, payload=info)
+
     def quit(self):
         """ Quit and cleanup """
         if self.worker:
@@ -97,7 +126,7 @@ curr_dir = os.getcwd()
 if not curr_dir.endswith('services'):
     curr_dir = os.path.join(curr_dir, 'auxo_olympus/lib/services')
 dirmembers = os.listdir(curr_dir)
-dirmembers: List[str] = [file_name[10:file_name.find('.py')].upper() for file_name in dirmembers if file_name.startswith('serviceExe')]
+dirmembers: List[str] = [file_name[10:].upper() for file_name in dirmembers if file_name.startswith('serviceExe')]
 s = namedtuple('Services', dirmembers)._make(name.lower() for name in dirmembers)
 
 

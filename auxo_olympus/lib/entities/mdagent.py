@@ -9,7 +9,9 @@ from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 # Import the relevant services
 from auxo_olympus.lib.services import service_exe as se
 from auxo_olympus.lib.services.service_exe import s as SERVICE
-from auxo_olympus.lib.services import serviceExeSumNums, serviceExeEcho
+
+from auxo_olympus.lib.services.serviceExeSumNums import serviceExeSumNums
+from auxo_olympus.lib.services.serviceExeEcho import serviceExeEcho
 
 # TODO: Connect the main agent with all of its running workers via zmq??
 # TODO: Have agents shutdown cleanly

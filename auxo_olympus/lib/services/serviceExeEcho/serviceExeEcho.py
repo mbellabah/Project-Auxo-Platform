@@ -12,14 +12,17 @@ class ServiceExeEcho(ServiceExeBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.service_name = 'echo'
+        self.name = f'{self.service_name}-Thread'
 
     # Override process
     def process(self, *args, **kwargs) -> dict:
         try:
             request: dict = json.loads(args[0])
-            self.worker: MajorDomoWorker = args[1]
+            worker: MajorDomoWorker = args[1]
         except IndexError:
             raise IndexError('Error: worker object has not been supplied:')
+
+        self.worker = worker
 
         # Do some work
         time.sleep(2)

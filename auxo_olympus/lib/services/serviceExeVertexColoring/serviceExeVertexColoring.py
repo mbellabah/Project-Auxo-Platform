@@ -19,8 +19,10 @@ class ServiceExeVertexColoring(ServiceExeBase):
     already colored neighbors
     3: end while
     """
-    def __init__(self, service_name: str = 'vertextcoloring', agent_name: str = ''):
-        super(ServiceExeVertexColoring, self).__init__(service_name, agent_name)
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.service_name = 'vertexcoloring'
+        self.name = f'{self.service_name}-Thread'
 
     def process(self, *args, **kwargs) -> dict:
         try:
@@ -33,10 +35,11 @@ class ServiceExeVertexColoring(ServiceExeBase):
         self.peer_port = self.worker.peer_port
 
         assert self.peer_port, "This service requires peers to exist!"
-        assert kwargs, "Need to provide kwargs"
+        assert self.inputs, "Need to provide kwargs when initing service"
+
         neighbors: list = request['neighbors']      # get the neighbors, those it can talk to
 
-        # populate the peer_port's state-space
+        # Populate the peer_port's state-space
         self.peer_port.state_space['color'] = None
 
         # Connect peer_port to all the peers

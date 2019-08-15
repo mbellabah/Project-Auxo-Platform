@@ -3,10 +3,11 @@ import json
 import random
 import logging
 import argparse
-import signal
 from collections import deque, defaultdict
 from binascii import hexlify, unhexlify
 
+import asyncio
+import zmq.asyncio
 import zmq
 
 # Local
@@ -94,6 +95,8 @@ class MajorDomoBroker():
 
         # Arranged by service, then ip
         self.worker_endpoints = defaultdict(dict)      # stores all the physical ip of the workers as seen from broker
+
+        self.loop = None
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
@@ -358,6 +361,7 @@ class MajorDomoBroker():
 
         self.socket.close()
         self.ctx.destroy()
+        if self.loop: self.loop.close()
 
 
 def main():
@@ -371,16 +375,16 @@ def main():
     verbose = args.v
 
     print(args)
+    print("#"*40)
 
-    print("Starting main program")
-
-    """ Create and start new broker """
+    # Create and start new broker
     broker = MajorDomoBroker(verbose)
     broker.bind(f"tcp://*:{port}")
 
     try:
         print("Broker started")
         broker.run()
+
     except KeyboardInterrupt:
         print("Broker has been stopped")
         broker.cleanup()
