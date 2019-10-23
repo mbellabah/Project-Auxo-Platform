@@ -63,7 +63,7 @@ class Agent(object):
     def service_handler(self, service: str, kwargs) -> se.ServiceExeBase:
         if service == SERVICE.ECHO:
             from auxo_olympus.lib.services.serviceExeEcho import serviceExeEcho
-            return serviceExeEcho.ServiceExeEcho(self.agent_name)
+            return serviceExeEcho.ServiceExeEcho(self.agent_name, kwargs)
 
         elif service == SERVICE.SUMNUMS:
             from auxo_olympus.lib.services.serviceExeSumNums import serviceExeSumNums

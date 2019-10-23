@@ -29,7 +29,7 @@ class ServiceExeEcho(ServiceExeBase):
         time.sleep(2)
         payload = request['payload']
 
-        test_numpy = np.random.randint(5, size=(5, 1))
+        # test_numpy = np.random.randint(5, size=(5, 1))
 
-        reply = {'payload': payload, test_numpy: test_numpy, 'origin': self.worker_name}
+        reply = {'payload': payload, 'origin': self.worker_name}
         return reply
