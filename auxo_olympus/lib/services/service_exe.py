@@ -1,7 +1,7 @@
 import os
 import json
 import threading
-from typing import List
+from typing import List, Dict
 from collections import namedtuple
 from abc import ABCMeta, abstractmethod
 
@@ -33,6 +33,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         self.own_port = None
         self.verbose = False
         self.result_q = None
+        self.got_req_q = None
         self.inputs = {}     # the owned inputs relevant to the problem
 
         self.peer_port = None
@@ -84,12 +85,9 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         pass
 
     # P2P suite
-    def request_from_peers(self, state: str):
-        """ For this service, only the leader may request things """
-        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
-
-        # leader sends request to all attached peers asking for their info
-        for peer_identity in self.peer_port.peers:
+    def request_from_peers(self, state: str, send_to: List[bytes] or Dict[bytes, str]):
+        # Send request to all attached peers asking for particular information
+        for peer_identity in send_to:
             request: dict = strip_of_bytes(
                 {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}
             )
@@ -100,10 +98,10 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
             # Wait until we receive everything from all the peers
             pass
 
-    def inform_peers(self):
+    def inform_peers(self, send_to: List[bytes] or Dict[bytes, str]):
         assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
 
-        for peer_identity in self.peer_port.peers:
+        for peer_identity in send_to:
             info: dict = strip_of_bytes(
                 {'origin': self.peer_port.peer_name, 'command': MDP.W_DISCONNECT, 'info': 'DONE'}
             )

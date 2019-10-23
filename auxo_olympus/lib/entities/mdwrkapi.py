@@ -66,6 +66,7 @@ class MajorDomoWorker(object):
         self.peer_port: PeerPort = None
         self.peer_request_queue: Queue = Queue()
         self.leader_bool = False
+        self.received_request: bool = False
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
@@ -192,7 +193,6 @@ class MajorDomoWorker(object):
                 self.heartbeat_at = time.time() + 1e-3*self.heartbeat
 
         self.destroy()
-        return None
 
     def command_handler(self, command: bytes, msg: list):
         if command == MDP.W_REQUEST:
@@ -202,6 +202,8 @@ class MajorDomoWorker(object):
             # Frame 1: client_addr
             # Frame 2: empty
             # Frame 3: client request
+
+            self.received_request: bool = True
 
             # We should pop and save as many addresses as there are
             # up to a null part, but for now, just save one...

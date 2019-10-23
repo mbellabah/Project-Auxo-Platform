@@ -1,17 +1,14 @@
 import json
+import time
 import queue
 import argparse
-from typing import Dict, Tuple
+from typing import Dict
 
 from auxo_olympus.lib.utils import MDP
-from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 
 # Import the relevant services
 from auxo_olympus.lib.services import service_exe as se
 from auxo_olympus.lib.services.service_exe import s as SERVICE
-
-from auxo_olympus.lib.services.serviceExeSumNums import serviceExeSumNums
-from auxo_olympus.lib.services.serviceExeEcho import serviceExeEcho
 
 # TODO: Connect the main agent with all of its running workers via zmq??
 # TODO: Have agents shutdown cleanly
@@ -19,6 +16,8 @@ from auxo_olympus.lib.services.serviceExeEcho import serviceExeEcho
 
 
 class Agent(object):
+    TIMEOUT = 5
+
     def __init__(self, agent_name, broker, port, verbose):
         """
         An agent
@@ -33,15 +32,16 @@ class Agent(object):
         self.verbose = verbose
         self.agent_type = MDP.A_AGENT
 
-        self.result_q = queue.Queue()
+        self.got_req_q = queue.Queue(maxsize=1)
+        self.result_q = queue.Queue(maxsize=1)
 
         # Define the services here!
-        self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS]
+        self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS, SERVICE.VERTEXCOLORING]
         self.running_services: Dict[str, se.ServiceExeBase] = {}
 
     def start_service(self, service, **kwargs) -> se.ServiceExeBase:
         assert self.available_services, "No services exist!"
-        assert service in self.available_services, f"Can't run {service}"
+        assert service in self.available_services, f"Can't run {service} -- doesn't exist"
 
         package = {
             'ip': self.broker,
@@ -49,6 +49,7 @@ class Agent(object):
             'own_port': self.port,
             'verbose': True,
             'result_q': self.result_q,
+            'got_req_q': self.got_req_q,
             'inputs': kwargs
         }
         service_exe = self.service_handler(service, kwargs=package)
@@ -61,10 +62,16 @@ class Agent(object):
 
     def service_handler(self, service: str, kwargs) -> se.ServiceExeBase:
         if service == SERVICE.ECHO:
+            from auxo_olympus.lib.services.serviceExeEcho import serviceExeEcho
             return serviceExeEcho.ServiceExeEcho(self.agent_name)
 
         elif service == SERVICE.SUMNUMS:
+            from auxo_olympus.lib.services.serviceExeSumNums import serviceExeSumNums
             return serviceExeSumNums.ServiceExeSumNums(self.agent_name, kwargs)
+
+        elif service == SERVICE.VERTEXCOLORING:
+            from auxo_olympus.lib.services.serviceExeVertexColoring import serviceExeVertexColoring
+            return serviceExeVertexColoring.ServiceExeVertexColoring(self.agent_name, kwargs)
 
     def run(self, initial_service=None, **kwargs):
         """ Runs a single service to completion/interruption """
@@ -75,18 +82,28 @@ class Agent(object):
 
         assert curr_service
 
+        t_end = time.time() + self.TIMEOUT + 60*100
         try:
-            while self.result_q.empty():
-                pass
+            while self.result_q.empty() and time.time() < t_end:
+                if not self.got_req_q.empty():
+                    t_end = time.time() + self.TIMEOUT
+                    _ = self.got_req_q.get(block=False)
+
             else:
-                status = self.result_q.get()     # pop from queue
+                try:
+                    status = self.result_q.get(block=False)     # pop from queue
+                except queue.Empty:
+                    status = MDP.TIMEOUT
 
                 if status == MDP.SUCCESS:
                     print(f'{initial_service} successfully completed :)')
                 elif status == MDP.FAIL:
                     print(f'{initial_service} failed :(')
+                elif status == MDP.TIMEOUT:
+                    print(f'{initial_service} timed out :(')
 
                 assert self.result_q.empty()
+                assert self.got_req_q.empty()
 
         except KeyboardInterrupt:
             pass
@@ -120,6 +137,7 @@ def main():
     args = parser.parse_args()
 
     print(args)
+    print("#"*40)
 
     verbose = args.v
     broker_addr = args.broker_ip

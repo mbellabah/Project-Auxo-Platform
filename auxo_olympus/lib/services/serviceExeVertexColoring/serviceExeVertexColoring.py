@@ -1,12 +1,12 @@
 import time
 import json
+from typing import List, Dict
 
-from auxo_olympus.lib.utils.zhelpers import strip_of_bytes
-
-import auxo_olympus.lib.utils.MDP as MDP
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 from auxo_olympus.lib.services.service_exe import ServiceExeBase
 
+
+# NOT Complete !
 
 class ServiceExeVertexColoring(ServiceExeBase):
     """
@@ -37,25 +37,31 @@ class ServiceExeVertexColoring(ServiceExeBase):
         assert self.peer_port, "This service requires peers to exist!"
         assert self.inputs, "Need to provide kwargs when initing service"
 
-        neighbors: list = request['neighbors']      # get the neighbors, those it can talk to
+        # Extract relevant details from the requests and inputs
+        color: str = self.inputs.get('color', 'None')
+        neighbors: list = self.inputs.get('neighbors')     # get the neighbors, those it can talk to
 
         # Populate the peer_port's state-space
-        self.peer_port.state_space['color'] = None
+        self.peer_port.state_space['color'] = color
 
         # Connect peer_port to all the peers
         self.peer_port.tie_to_peers()
         time.sleep(self.BIND_WAIT)
 
-        # All peers talk to one another
-        for peer_identity in self.peer_port.peers:
-            request: dict = strip_of_bytes({'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': 'color'})
-            request: bytes = json.dumps(request).encode('utf8')
-            self.peer_port.send(peer_identity, payload=request)
+        send_to: List[bytes] = self.parse_send_to(send_to=neighbors)
 
-        if not self.leader_bool:
-            return {}
-        else:
-            return {}
+        self.request_from_peers(state='color', send_to=send_to)
 
+        all_colors = [self.peer_port.state_space['color']]
+        all_colors += [data['color'] for data in self.peer_port.state_space['other_peer_data'].values()]
+
+        payload = all_colors
+        reply = {'reply': payload, 'origin': self.worker_name}
+
+        self.peer_port.stop()
+        return reply
+
+    def parse_send_to(self, send_to) -> List[bytes]:
+        return [peer_name for peer_name in self.peer_port.peers if peer_name.split(b'.')[0] in send_to]
 
 

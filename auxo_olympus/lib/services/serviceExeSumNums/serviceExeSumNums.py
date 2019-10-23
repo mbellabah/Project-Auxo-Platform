@@ -13,11 +13,13 @@ input: {
     "my_summand": <int>
 }
 
+state_space {'other_peer_data': {'A02.sumnums.peer': {'my_summand': 8}}, 'my_summand': 2, 'target_number': 10}
+
 """
 
 import time
 import json
-from typing import List
+from typing import List, Dict
 
 import auxo_olympus.lib.services.serviceExeSumNums.work_functions as wf
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
@@ -43,6 +45,9 @@ class ServiceExeSumNums(ServiceExeBase):
         assert self.peer_port, "This service requires peers to exist!"
         assert self.inputs, "Need to provide kwargs when initing service"
 
+        # let agent who holds the service-exe know that it has received a request by signaling on the got_req_q
+        self.got_req_q.put('ADD')
+
         # Extract relevant details from the requests and inputs
         target_number: int = int(request['target'])
         my_summand: int = self.inputs.get('my_summand', 0)
@@ -56,19 +61,19 @@ class ServiceExeSumNums(ServiceExeBase):
         time.sleep(self.BIND_WAIT)
 
         if self.leader_bool:
-            self.request_from_peers(state='my_summand')
+            send_to: List[bytes] or Dict[bytes, str] = self.peer_port.peers
 
-            # state_space {'other_peer_data': {'A02.sumnums.peer': {'my_summand': 8}}, 'my_summand': 2, 'target_number': 10}
+            self.request_from_peers(state='my_summand', send_to=send_to)
+
             all_summands = [my_summand]
-            for peer, data in self.peer_port.state_space['other_peer_data'].items():
-                all_summands.append(data['my_summand'])
+            all_summands += [data['my_summand'] for data in self.peer_port.state_space['other_peer_data'].values()]
 
             # DO WORK! Formulate reply
             payload = self.work(all_nums=all_summands, target=target_number)
             reply = {'reply': payload, 'origin': self.worker_name}
 
             # inform peers that leader is done and so they can die
-            self.inform_peers()     # Peers that are not leaders will shutdown themselves
+            self.inform_peers(send_to=send_to)     # Peers that are not leaders will shutdown themselves
             self.peer_port.stop()
         else:
             reply = None
