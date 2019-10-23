@@ -1,6 +1,7 @@
 import os
 import json
 import threading
+from pathlib import Path
 from typing import List, Dict
 from collections import namedtuple
 from abc import ABCMeta, abstractmethod
@@ -120,13 +121,13 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names
-curr_dir = os.getcwd()
-if not curr_dir.endswith('services'):
-    curr_dir = os.path.join(curr_dir, 'auxo_olympus/lib/services')
+curr_dir = Path(os.getcwd())
+if not curr_dir.name == 'services':
+    curr_dir = curr_dir.parent.joinpath('services')
+
 dirmembers = os.listdir(curr_dir)
 dirmembers: List[str] = [file_name[10:].upper() for file_name in dirmembers if file_name.startswith('serviceExe')]
 s = namedtuple('Services', dirmembers)._make(name.lower() for name in dirmembers)
-
 
 if __name__ == '__main__':
     print(s)

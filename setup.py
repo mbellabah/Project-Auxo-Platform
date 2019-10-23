@@ -1,12 +1,6 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
-packages = [
-      'auxo_olympus',
-      'auxo_olympus.lib',
-      'auxo_olympus.lib.entities',
-      'auxo_olympus.lib.services',
-      'auxo_olympus.lib.utils'
-]
+packages = find_packages(exclude=("auxo_olympus.tests", "auxo_olympus.zmq_examples"))
 
 setup(
       name='auxo_olympus',

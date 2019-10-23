@@ -1,5 +1,6 @@
 import time
 import json
+import numpy as np
 
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 from auxo_olympus.lib.services.service_exe import ServiceExeBase
@@ -28,5 +29,7 @@ class ServiceExeEcho(ServiceExeBase):
         time.sleep(2)
         payload = request['payload']
 
-        reply = {'payload': payload, 'origin': self.worker_name}
+        test_numpy = np.random.randint(5, size=(5, 1))
+
+        reply = {'payload': payload, test_numpy: test_numpy, 'origin': self.worker_name}
         return reply

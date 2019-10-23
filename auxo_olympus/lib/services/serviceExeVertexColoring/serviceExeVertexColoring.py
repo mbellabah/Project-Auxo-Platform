@@ -6,7 +6,7 @@ from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 from auxo_olympus.lib.services.service_exe import ServiceExeBase
 
 
-# NOT Complete !
+# NOT COMPLETE !
 
 class ServiceExeVertexColoring(ServiceExeBase):
     """
