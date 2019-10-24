@@ -36,7 +36,7 @@ class Agent(object):
         self.result_q = queue.Queue(maxsize=1)
 
         # Define the services here!
-        self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS, SERVICE.VERTEXCOLORING]
+        self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS, SERVICE.VERTEXCOLORING, SERVICE.FEDERATEDLEARNING]
         self.running_services: Dict[str, se.ServiceExeBase] = {}
 
     def start_service(self, service, **kwargs) -> se.ServiceExeBase:
@@ -72,6 +72,10 @@ class Agent(object):
         elif service == SERVICE.VERTEXCOLORING:
             from auxo_olympus.lib.services.serviceExeVertexColoring import serviceExeVertexColoring
             return serviceExeVertexColoring.ServiceExeVertexColoring(self.agent_name, kwargs)
+
+        elif service == SERVICE.FEDERATEDLEARNING:
+            from auxo_olympus.lib.services.serviceExeFederatedLearning import serviceExeFederatedLearning
+            return serviceExeFederatedLearning.ServiceExeFederatedLearning(self.agent_name, kwargs)
 
     def run(self, initial_service=None, **kwargs):
         """ Runs a single service to completion/interruption """

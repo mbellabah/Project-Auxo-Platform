@@ -27,6 +27,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
         self.service_name = 'base'
         self.agent_name: str = self.args[0]
+        self.agent_id: int = int(self.agent_name[1:])
 
         self.worker: MajorDomoWorker = None
         self.ip = None
@@ -122,11 +123,14 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names
 curr_dir = Path(os.getcwd())
-if not curr_dir.name == 'services':
+if not (curr_dir.name == 'services' or curr_dir.parent.name == 'services'):
     curr_dir = curr_dir.parent.joinpath('services')
 
 dirmembers = os.listdir(curr_dir)
 dirmembers: List[str] = [file_name[10:].upper() for file_name in dirmembers if file_name.startswith('serviceExe')]
+
+# to assert that the filen_name doesn't end with .py
+dirmembers = [file_name[:-3] if file_name.endswith(".PY") else file_name for file_name in dirmembers]
 s = namedtuple('Services', dirmembers)._make(name.lower() for name in dirmembers)
 
 if __name__ == '__main__':
