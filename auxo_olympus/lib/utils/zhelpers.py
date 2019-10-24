@@ -9,6 +9,7 @@ import os
 import json
 import socket
 import threading
+import numpy as np
 from random import randint
 
 import zmq
@@ -99,6 +100,24 @@ def strip_of_bytes(input_dict: dict):
             input_dict[key] = out
 
     return input_dict
+
+
+class NDArrayEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
+
+def jsonify_nparray(data):
+    json_str = json.dumps({'a': data}, cls=NDArrayEncoder)
+    return json_str
+
+
+def restore_nparray(json_str):
+    json_load = json.loads(json_str)
+    a_restored = np.asarray(json_load["a"])
+    return a_restored
 
 
 def int_to_bytes(x: int) -> bytes:

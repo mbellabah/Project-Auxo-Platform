@@ -2,6 +2,8 @@ import time
 import json
 import numpy as np
 
+from auxo_olympus.lib.utils.zhelpers import jsonify_nparray
+
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 from auxo_olympus.lib.services.service_exe import ServiceExeBase
 
@@ -9,6 +11,9 @@ from auxo_olympus.lib.services.service_exe import ServiceExeBase
 class ServiceExeEcho(ServiceExeBase):
     """
     Simple echo service, doesn't need to coordinate with peers!
+
+    In the terminal:
+    python3 mdagent.py -service=echo -v=True -d='{}' A01
     """
     def __init__(self, *args):
         super().__init__(*args)
@@ -29,7 +34,8 @@ class ServiceExeEcho(ServiceExeBase):
         time.sleep(2)
         payload = request['payload']
 
-        # test_numpy = np.random.randint(5, size=(5, 1))
+        # TEST NUMPY ARRAY
+        test_numpy = jsonify_nparray(np.random.randint(5, size=(5, 1)))
 
-        reply = {'payload': payload, 'origin': self.worker_name}
+        reply = {'payload': payload, 'test_np_array': test_numpy, 'origin': self.worker_name}
         return reply

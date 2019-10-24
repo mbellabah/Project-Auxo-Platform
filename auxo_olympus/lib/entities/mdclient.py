@@ -1,3 +1,4 @@
+from auxo_olympus.lib.utils.zhelpers import jsonify_nparray, restore_nparray
 from auxo_olympus.lib.entities.mdcliapi import MajorDomoClient
 
 import time
@@ -54,6 +55,12 @@ class Client(object):
 
         print(f"{count} requests/replies processed")
         print(f"most recent reply: {actual_reply}")
+
+        # TEST NUMPY ARRAY
+        print("#"*15)
+        if 'test_np_array' in actual_reply:
+            print("RECEIVED THIS NP ARRAY")
+            print(restore_nparray(actual_reply['test_np_array']))
 
 
 def main():
