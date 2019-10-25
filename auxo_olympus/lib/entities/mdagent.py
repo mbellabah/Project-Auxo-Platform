@@ -1,5 +1,6 @@
 import json
 import time
+import math
 import queue
 import argparse
 from typing import Dict
@@ -16,8 +17,6 @@ from auxo_olympus.lib.services.service_exe import s as SERVICE
 
 
 class Agent(object):
-    TIMEOUT = 5
-
     def __init__(self, agent_name, broker, port, verbose):
         """
         An agent
@@ -26,6 +25,8 @@ class Agent(object):
         :param port:
         :param verbose:
         """
+        self.TIMEOUT = 100
+
         self.agent_name = agent_name
         self.broker = broker        # Broker's ip addr
         self.port = port            # Broker's port
@@ -47,7 +48,7 @@ class Agent(object):
             'ip': self.broker,
             'port': self.port,
             'own_port': self.port,
-            'verbose': True,
+            'verbose': False,       # don't need workers in service_exes to be verbose
             'result_q': self.result_q,
             'got_req_q': self.got_req_q,
             'inputs': kwargs
@@ -135,8 +136,10 @@ def main():
     parser.add_argument('-port', default=5555, type=int, help='port to listen through')
     parser.add_argument('-service', default='echo', type=str, help='initial service for the agent')
     parser.add_argument('agent_name', type=str, help='agent\'s name')
-    parser.add_argument("-v", default=False, type=bool, help='verbose output')
+    parser.add_argument("--v", default=False, action='store_true', help='verbose output')
     parser.add_argument("-d", '--inputs', type=json.loads, help='inputs that correspond to the service')
+    parser.add_argument("--t", default=False, action='store_true', help='whether to have timeout')
+    parser.add_argument("--no-t", dest='t', action='store_false', help='whether to have timeout')
 
     args = parser.parse_args()
 
@@ -149,9 +152,12 @@ def main():
     agent_name = args.agent_name
     service = args.service
     inputs: dict = args.inputs
+    timeout: bool = args.t
 
     # Instantiate and dispatch the worker
     agent = Agent(agent_name, broker_addr, port, verbose)
+    if not timeout:
+        agent.TIMEOUT = math.inf
     agent.run(initial_service=service, **inputs)
 
 

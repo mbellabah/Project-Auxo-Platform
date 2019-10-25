@@ -367,7 +367,7 @@ class MajorDomoBroker():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-port', default=5555, type=int, help='port to listen through')
-    parser.add_argument("-v", default=False, type=bool, help='verbose output')
+    parser.add_argument("--v", default=False, action='store_true', help='verbose output')
 
     args = parser.parse_args()
 
