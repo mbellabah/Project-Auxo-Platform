@@ -5,7 +5,7 @@ from torchvision import datasets, transforms
 
 
 def mnist_iid(dataset, num_devices):
-    num_items = int(len(dataset)/num_devices)
+    num_items = 200 # FIXME REMOVE THIS # int(len(dataset)/num_devices)
     dict_devices, all_idxs = {}, [i for i in range(len(dataset))]
 
     for i in range(num_devices):
@@ -54,7 +54,7 @@ def args_parser():
 
 raw_args = Namespace(
     epochs=2,
-    local_ep=5,
+    local_ep=2,
     local_bs=10,
     bs=128,
     lr=0.01,
