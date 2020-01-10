@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class CNNMnist(nn.Module):
-    def __init__(self, args):
+    def __init__(self):
         super().__init__()
 
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)

@@ -2,6 +2,7 @@ import zmq
 import time
 import json
 import threading
+import jsonpickle
 from queue import Queue
 from typing import Dict, Any
 
@@ -149,6 +150,8 @@ class PeerPort(Peer):
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         super(PeerPort, self).__init__(endpoint, peer_name, peers, verbose)
 
+        self.leader_force_alive = True
+
     # override process_queue
     def process_queue_thread(self):
         # Only for debugging
@@ -178,8 +181,14 @@ class PeerPort(Peer):
 
             payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}
             payload: dict = strip_of_bytes(payload)
-            jsonified_payload: bytes = json.dumps(payload).encode('utf8')
 
+            try:
+                jsonified_payload: bytes = json.dumps(payload).encode('utf8')
+            except TypeError:
+                # object of type "Custom Object" is not JSON serializable
+                jsonified_payload: bytes = jsonpickle.encode(payload)
+
+            # print('sending reply!', jsonified_payload)
             self.send(peer_ident=peer_identity, payload=jsonified_payload)
 
         elif command == MDP.W_REPLY:
@@ -190,6 +199,7 @@ class PeerPort(Peer):
 
         elif command == MDP.W_DISCONNECT:
             info: str = msg['info']
+            self.leader_force_alive = False
             if info == 'DONE':
                 self.stop()
 

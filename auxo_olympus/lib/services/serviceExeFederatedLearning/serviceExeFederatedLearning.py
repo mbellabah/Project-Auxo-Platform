@@ -1,8 +1,6 @@
 import json
 import time
 import copy
-import matplotlib.pyplot as plt
-import numpy as np
 from typing import List, Dict
 
 from torchvision import datasets, transforms
@@ -15,7 +13,6 @@ from auxo_olympus.lib.services.serviceExeFederatedLearning.models.nets import CN
 from auxo_olympus.lib.services.serviceExeFederatedLearning.fed.Fed import fed_avg
 from auxo_olympus.lib.services.serviceExeFederatedLearning.models.update import LocalUpdate
 from auxo_olympus.lib.services.serviceExeFederatedLearning.fed.sampling import mnist_iid, raw_args
-from auxo_olympus.lib.services.serviceExeFederatedLearning.fed.sampling import args_parser
 
 
 class ServiceExeFederatedLearning(ServiceExeBase):
@@ -44,7 +41,7 @@ class ServiceExeFederatedLearning(ServiceExeBase):
         # Extract relevant details from the requests and inputs
         num_agents: int = len(self.peer_port.peers) + 1
         dataset: str = str(request['dataset'])
-        epochs: int = 1
+        epochs: int = raw_args.epochs
         gpu: int = 0
         device = torch.device('cuda:{}'.format(gpu) if torch.cuda.is_available() and gpu != -1 else 'cpu')
         raw_args.device = device
@@ -52,10 +49,10 @@ class ServiceExeFederatedLearning(ServiceExeBase):
         if dataset == 'mnist':
             # For now,
             trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-            dataset_train = datasets.MNIST('../data/mnist/', train=True, download=True, transform=trans_mnist)
-            dataset_test = datasets.MNIST('../data/mnist/', train=False, download=True, transform=trans_mnist)
+            dataset_train = datasets.MNIST(f'../services/serviceExeFederatedLearning/data_{self.agent_name}/mnist/', train=True, download=True, transform=trans_mnist)
+            # dataset_test = datasets.MNIST('../services/serviceExeFederatedLearning/data/mnist/', train=False, download=True, transform=trans_mnist)
             
-            # get training data indices (here we assume that the agent does not have acess to otehr)
+            # get training data indices (here we assume that the agent does not have access to other)
             my_data_indxs = mnist_iid(dataset_train, num_agents)[self.agent_id - 1]
         else:
             exit('Error: unrecognized dataset')
@@ -96,6 +93,7 @@ class ServiceExeFederatedLearning(ServiceExeBase):
                 # get all the others to train themselves and provide the necessary info
                 self.request_from_peers(state='local', send_to=send_to)
                 for data in self.peer_port.state_space['other_peer_data'].values():
+                    # print(self.peer_port.state_space['other_peer_data'])
                     w, loss = data['local'].train(net=copy.deepcopy(net_glob).to(device))
                     w_locals.append(copy.deepcopy(w))
                     loss_locals.append(copy.deepcopy(loss))
@@ -119,10 +117,11 @@ class ServiceExeFederatedLearning(ServiceExeBase):
             # inform peers that leader is done and so they can die
             self.inform_peers(send_to=send_to)  # Peers that are not leaders will shutdown themselves
             self.peer_port.stop()
-        else:
-            reply = None
 
-        return reply
+            return reply
+        else:
+            while self.peer_port.leader_force_alive:
+                pass
 
 
 if __name__ == '__main__':

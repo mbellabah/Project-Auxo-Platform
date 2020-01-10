@@ -27,6 +27,9 @@ class ServiceExeHybridSolar(ServiceExeBase):
         except IndexError:
             raise IndexError('Error: worker object has not been supplied')
 
+        
+        print("HERE", request)
+        
         self.worker = worker 
 
         # Do some work 
