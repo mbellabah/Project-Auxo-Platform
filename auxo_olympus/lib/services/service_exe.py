@@ -88,7 +88,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
     # P2P suite
     def request_from_peers(self, state: str, send_to: List[bytes] or Dict[bytes, str]):
-        # Send request to all attached peers asking for particular information
+        # Send request to all attached peers asking for particular information, recall that we access the PeerPort object
         for peer_identity in send_to:
             request: dict = strip_of_bytes(
                 {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}

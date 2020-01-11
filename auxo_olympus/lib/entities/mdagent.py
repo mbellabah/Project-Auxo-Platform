@@ -48,6 +48,11 @@ class Agent(object):
         self.available_services = ALL_SERVICES
         self.running_services: Dict[str, se.ServiceExeBase] = {}
 
+    def my_services(self):
+        print(f"My {self.agent_name} available services are: {self.available_services}")
+        return self.available_services
+
+    # MARK: Functions concerning the running of services 
     def start_service(self, service, **kwargs) -> se.ServiceExeBase:
         assert self.available_services, "No services exist!"
         assert service in self.available_services, f"Can't run {service} -- doesn't exist"

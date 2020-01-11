@@ -1,6 +1,5 @@
 """
 Given a target number x from the client, return true if the sum of self with peer add up to target
-request: {'target': <int> 10, ...}
 
 Expected Client Request
 input: {
@@ -14,7 +13,6 @@ input: {
 }
 
 state_space {'other_peer_data': {'A02.sumnums.peer': {'my_summand': 8}}, 'my_summand': 2, 'target_number': 10}
-
 """
 
 import time
@@ -52,7 +50,7 @@ class ServiceExeSumNums(ServiceExeBase):
         target_number: int = int(request['target'])
         my_summand: int = self.inputs.get('my_summand', 0)
 
-        # Populate the peer-ports state-space
+        # Populate the peer-port's state-space
         self.peer_port.state_space['my_summand'] = my_summand
         self.peer_port.state_space['target_number'] = target_number
 
