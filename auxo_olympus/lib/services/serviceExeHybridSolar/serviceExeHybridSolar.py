@@ -35,9 +35,9 @@ class ServiceExeHybridSolar(ServiceExeBase):
 
         self.asset_type: str = self.inputs['asset_type'] 
         if self.asset_type == 'battery':
-            self.asset_obj = Battery(**self.inputs['asset_obj_kwargs'])
+            self.asset_obj = Battery(self.service_name, **self.inputs['asset_obj_kwargs'])
         elif self.asset_type == 'solarpanel':
-            self.asset_obj = SolarPanel(**self.inputs['asset_obj_kwargs'])
+            self.asset_obj = SolarPanel(self.service_name, **self.inputs['asset_obj_kwargs'])
 
     def process(self, *args, **kwargs) -> dict:
         try: 
@@ -68,9 +68,13 @@ class ServiceExeHybridSolar(ServiceExeBase):
         elif self.asset_type == 'solarpanel': 
             my_reliability = self.asset_obj.get_reliability()
 
-            # Query peers and see who is a battery 
-            battery_peers: Dict[bytes, str] = self.find_battery_peers()
-            print("HERE - these are the battery peers", battery_peers)
+            # if reliability is poor enough that can't expect good revenue 
+            if self.asset_obj.expected_revenue(my_reliability) <= self.asset_obj.threshold:
+                # Query peers and see who is a battery 
+                battery_peers: Dict[bytes, str] = self.find_battery_peers()
+
+                # Solar panel determines some level of capacity that it needs, along with the length of the offer (contract)
+                # receieves asks from battery peers, hosted within the solarpanel object 
 
     def find_battery_peers(self) -> Dict[bytes, str]: 
         """
