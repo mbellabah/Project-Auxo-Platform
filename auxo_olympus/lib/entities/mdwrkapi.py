@@ -36,9 +36,9 @@ class MajorDomoWorker(object):
 
     reply_to = None       # Return address if any
 
-    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER, own_port=5555):
+    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER, own_port=None):
         self.broker: str = broker
-        self.own_port: int = own_port + random.randint(1, 20) if LOCAL else own_port
+        self.own_port: int = own_port if own_port else 5555 + random.randint(1, 20)
         self.service: str = service
         self.verbose = verbose
         if not isinstance(worker_name, bytes):
@@ -60,7 +60,7 @@ class MajorDomoWorker(object):
         # Inter-worker peer handling
         ip_addr = get_host_name_ip()
         self.endpoint: str = f"tcp://{ip_addr}:{self.own_port}"
-
+        
         self.peers_endpoints: Dict[bytes, str] = {}    # tcp endpoints of peers for the given service
         # Note that self.peer has not been connected to its peers
         self.peer_port: PeerPort = None

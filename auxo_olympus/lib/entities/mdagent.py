@@ -59,7 +59,7 @@ class Agent(object):
 
         package = {
             'ip': self.broker,
-            'port': self.port,
+            'port': 5555,       # ! fix this here, by default broker uses port 5555
             'own_port': self.port,
             'verbose': False,       # don't need workers in service_exes to be verbose
             'result_q': self.result_q,
