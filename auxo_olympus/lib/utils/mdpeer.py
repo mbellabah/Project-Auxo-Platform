@@ -1,6 +1,7 @@
 import zmq
 import time
 import json
+import pickle 
 import threading
 import jsonpickle
 from queue import Queue
@@ -163,8 +164,9 @@ class PeerPort(Peer):
 
                 try:
                     msg: dict = json.loads(msg)
-                except Exception as e:
-                    print("Failed", repr(e))
+                except UnicodeDecodeError:
+                    # issue is probably because not JSON serializable, so use pickle to load
+                    msg: dict = pickle.loads(msg)
 
                 command: bytes = msg['command'].encode('utf8')
                 self.command_handler(msg, command)
@@ -185,8 +187,8 @@ class PeerPort(Peer):
             try:
                 jsonified_payload: bytes = json.dumps(payload).encode('utf8')
             except TypeError:
-                # object of type "Custom Object" is not JSON serializable
-                jsonified_payload: bytes = jsonpickle.encode(payload)
+                # object of type "Custom Object" is not JSON serializable, use pickle 
+                jsonified_payload: bytes = pickle.dumps(payload) # jsonpickle.encode(payload)
 
             # print('sending reply!', jsonified_payload)
             self.send(peer_ident=peer_identity, payload=jsonified_payload)
