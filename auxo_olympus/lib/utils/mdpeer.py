@@ -155,10 +155,9 @@ class PeerPort(Peer):
 
     # override process_queue
     def process_queue_thread(self):
-        # Only for debugging
         while True:
             if not self.request_queue.empty():
-                if self.verbose:
+                if self.verbose:       #! 
                     print(self.peer_name, "Queue:", list(self.request_queue.queue))
                 msg: Any = self.request_queue.get()[0]
 
@@ -171,7 +170,7 @@ class PeerPort(Peer):
                 command: bytes = msg['command'].encode('utf8')
                 self.command_handler(msg, command)
 
-            time.sleep(0.5)
+            time.sleep(0.001)
 
     def command_handler(self, msg, command):
         peer_identity: bytes = msg['origin'].encode('utf8')

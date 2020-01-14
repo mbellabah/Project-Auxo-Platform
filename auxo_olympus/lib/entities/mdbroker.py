@@ -218,7 +218,7 @@ class MajorDomoBroker():
         self.workers.pop(worker.identity)
         try:
             self.worker_endpoints[worker.service.name].pop(worker.worker_name)
-        except KeyError:
+        except (KeyError, AttributeError):
             # worker probably has already been killed # FIXME: Confirm this
             pass
 
