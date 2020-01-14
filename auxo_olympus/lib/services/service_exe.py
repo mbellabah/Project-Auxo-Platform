@@ -1,9 +1,12 @@
 import os
+import json
 import threading
-from typing import List
+from pathlib import Path
+from typing import List, Dict
 from collections import namedtuple
 from abc import ABCMeta, abstractmethod
 
+from auxo_olympus.lib.utils.zhelpers import strip_of_bytes
 from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 from auxo_olympus.lib.utils import MDP
 
@@ -24,6 +27,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
         self.service_name = 'base'
         self.agent_name: str = self.args[0]
+        self.agent_id: int = int(self.agent_name[1:])
 
         self.worker: MajorDomoWorker = None
         self.ip = None
@@ -31,10 +35,12 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         self.own_port = None
         self.verbose = False
         self.result_q = None
+        self.got_req_q = None
         self.inputs = {}     # the owned inputs relevant to the problem
 
         self.peer_port = None
         self.name = f'{self.service_name}-Thread'
+        self.daemon = True
 
         self.set_kwargs()
 
@@ -50,6 +56,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         status = MDP.SUCCESS
 
         if self.worker:
+            reply = None
             request = self.worker.recv(reply=None)
             try:
                 reply = self.process(request, self.worker, self.inputs)
@@ -59,7 +66,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
             _ = self.worker.recv(reply)     # send reply, don't get msg back
 
-            assert self.peer_port.shutdown_flag
+            # assert self.peer_port.shutdown_flag
             self.result_q.put(status)       # how we signal to the main agent that this service-exe is complete
 
     def create_new_worker(self, worker_name, service):
@@ -79,6 +86,30 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
     def process(self, *args, **kwargs) -> dict:
         pass
 
+    # P2P suite
+    def request_from_peers(self, state: str, send_to: List[bytes] or Dict[bytes, str]):
+        # Send request to all attached peers asking for particular information, recall that we access the PeerPort object
+        for peer_identity in send_to:
+            request: dict = strip_of_bytes(
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}
+            )
+            request: bytes = json.dumps(request).encode('utf8')
+            self.peer_port.send(peer_identity, payload=request)
+
+        while len(self.peer_port.state_space['other_peer_data']) != len(self.peer_port.peers):
+            # Wait until we receive everything from all the peers
+            pass
+
+    def inform_peers(self, send_to: List[bytes] or Dict[bytes, str]):
+        assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
+
+        for peer_identity in send_to:
+            info: dict = strip_of_bytes(
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_DISCONNECT, 'info': 'DONE'}
+            )
+            info: bytes = json.dumps(info).encode('utf8')
+            self.peer_port.send(peer_identity, payload=info)
+
     def quit(self):
         """ Quit and cleanup """
         if self.worker:
@@ -91,13 +122,16 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names
-curr_dir = os.getcwd()
-if not curr_dir.endswith('services'):
-    curr_dir = os.path.join(curr_dir, 'auxo_olympus/lib/services')
-dirmembers = os.listdir(curr_dir)
-dirmembers: List[str] = [file_name[10:file_name.find('.py')].upper() for file_name in dirmembers if file_name.startswith('serviceExe')]
-s = namedtuple('Services', dirmembers)._make(name.lower() for name in dirmembers)
+curr_dir = Path(os.getcwd())
+if not (curr_dir.name == 'services' or curr_dir.parent.name == 'services'):
+    curr_dir = curr_dir.parent.joinpath('services')
 
+dirmembers = os.listdir(curr_dir)
+dirmembers: List[str] = [file_name[10:].upper() for file_name in dirmembers if file_name.startswith('serviceExe')]
+
+# to assert that the filen_name doesn't end with .py
+dirmembers = [file_name[:-3] if file_name.endswith(".PY") else file_name for file_name in dirmembers]
+s = namedtuple('Services', dirmembers)._make(name.lower() for name in dirmembers)
 
 if __name__ == '__main__':
     print(s)

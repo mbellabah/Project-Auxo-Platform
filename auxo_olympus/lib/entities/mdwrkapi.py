@@ -36,9 +36,9 @@ class MajorDomoWorker(object):
 
     reply_to = None       # Return address if any
 
-    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER, own_port=5555):
+    def __init__(self, broker, service, verbose=False, worker_name=MDP.W_WORKER, own_port=None):
         self.broker: str = broker
-        self.own_port: int = own_port + random.randint(1, 20) if LOCAL else own_port
+        self.own_port: int = own_port if own_port else 5555 + random.randint(1, 20)
         self.service: str = service
         self.verbose = verbose
         if not isinstance(worker_name, bytes):
@@ -50,6 +50,7 @@ class MajorDomoWorker(object):
         self.worker_name: bytes = worker_name      # of format A01.service
         self.agent_name: bytes = agent_name        # of format A01
 
+        self.worker_socket = None
         self.ctx = zmq.Context()
         self.poller = zmq.Poller()
 
@@ -59,12 +60,13 @@ class MajorDomoWorker(object):
         # Inter-worker peer handling
         ip_addr = get_host_name_ip()
         self.endpoint: str = f"tcp://{ip_addr}:{self.own_port}"
-
+        
         self.peers_endpoints: Dict[bytes, str] = {}    # tcp endpoints of peers for the given service
         # Note that self.peer has not been connected to its peers
         self.peer_port: PeerPort = None
         self.peer_request_queue: Queue = Queue()
         self.leader_bool = False
+        self.received_request: bool = False
 
         logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG)
 
@@ -78,20 +80,20 @@ class MajorDomoWorker(object):
     def reconnect_to_broker(self):
         """Connect or reconnect to broker"""
         if self.ctx:
-            if self.worker:
-                self.poller.unregister(self.worker)
-                self.worker.close()
+            if self.worker_socket:
+                self.poller.unregister(self.worker_socket)
+                self.worker_socket.close()
 
-            self.worker = self.ctx.socket(zmq.DEALER)
+            self.worker_socket = self.ctx.socket(zmq.DEALER)
 
             # Setup monitor
             if self._debug:
-                self.monitor: ZMQMonitor = ZMQMonitor(self.worker)
+                self.monitor: ZMQMonitor = ZMQMonitor(self.worker_socket)
 
-            self.worker.identity = self.worker_name
-            self.worker.linger = 0
-            self.worker.connect(self.broker)
-            self.poller.register(self.worker, zmq.POLLIN)
+            self.worker_socket.identity = self.worker_name
+            self.worker_socket.linger = 0
+            self.worker_socket.connect(self.broker)
+            self.poller.register(self.worker_socket, zmq.POLLIN)
             if self.verbose:
                 logging.info(f"I: connecting to broker at {self.broker}...")
 
@@ -106,7 +108,7 @@ class MajorDomoWorker(object):
         """Send message to broker.
         If no msg is provided, creates one internally
         """
-        assert self.worker
+        assert self.worker_socket
         if msg is None:
             msg = []
         elif not isinstance(msg, list):
@@ -121,7 +123,7 @@ class MajorDomoWorker(object):
         if self.verbose:
             logging.info(f"I: sending {command} to broker")
             dump(msg)
-        self.worker.send_multipart(msg)
+        self.worker_socket.send_multipart(msg)
 
     def recv(self, reply=None):
         """Send reply, if any, to broker and wait for next request."""
@@ -146,7 +148,7 @@ class MajorDomoWorker(object):
                 break   # Interrupted
 
             if items:
-                msg = self.worker.recv_multipart()
+                msg = self.worker_socket.recv_multipart()
                 if self.verbose:
                     logging.info("I: received message from broker: ")
                     dump(msg)
@@ -190,9 +192,7 @@ class MajorDomoWorker(object):
                 self.send_to_broker(MDP.W_HEARTBEAT, msg=self.endpoint)
                 self.heartbeat_at = time.time() + 1e-3*self.heartbeat
 
-        logging.warning("W: interrupt received, killing worker...")
         self.destroy()
-        return None
 
     def command_handler(self, command: bytes, msg: list):
         if command == MDP.W_REQUEST:
@@ -202,6 +202,8 @@ class MajorDomoWorker(object):
             # Frame 1: client_addr
             # Frame 2: empty
             # Frame 3: client request
+
+            self.received_request: bool = True
 
             # We should pop and save as many addresses as there are
             # up to a null part, but for now, just save one...
@@ -258,5 +260,8 @@ class MajorDomoWorker(object):
     def destroy(self):
         if self._debug:
             self.monitor.stop()
-        self.ctx.destroy(0)
+
+        logging.warning("W: interrupt received, killing worker...")
+
+        self.worker_socket.close()
         self.ctx = None

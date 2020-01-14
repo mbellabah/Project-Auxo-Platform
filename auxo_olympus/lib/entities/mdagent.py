@@ -1,19 +1,28 @@
 import json
+import time
+import math
 import queue
 import argparse
-from typing import Dict, Tuple
+from typing import Dict
 
 from auxo_olympus.lib.utils import MDP
-from auxo_olympus.lib.entities.mdwrkapi import MajorDomoWorker
 
 # Import the relevant services
 from auxo_olympus.lib.services import service_exe as se
 from auxo_olympus.lib.services.service_exe import s as SERVICE
-from auxo_olympus.lib.services import serviceExeSumNums, serviceExeEcho
 
 # TODO: Connect the main agent with all of its running workers via zmq??
 # TODO: Have agents shutdown cleanly
 # TODO: Make the workers/service_exe within the agent multithreaded
+
+# FIXME: Define all the services here 
+ALL_SERVICES = [
+    SERVICE.ECHO, 
+    SERVICE.SUMNUMS, 
+    SERVICE.VERTEXCOLORING, 
+    SERVICE.FEDERATEDLEARNING,
+    SERVICE.HYBRIDSOLAR 
+    ]
 
 
 class Agent(object):
@@ -25,28 +34,36 @@ class Agent(object):
         :param port:
         :param verbose:
         """
+        self.TIMEOUT = 100
+
         self.agent_name = agent_name
         self.broker = broker        # Broker's ip addr
         self.port = port            # Broker's port
         self.verbose = verbose
         self.agent_type = MDP.A_AGENT
 
-        self.result_q = queue.Queue()
+        self.got_req_q = queue.Queue(maxsize=1)
+        self.result_q = queue.Queue(maxsize=1)
 
-        # Define the services here!
-        self.available_services = [SERVICE.ECHO, SERVICE.SUMNUMS]
+        self.available_services = ALL_SERVICES
         self.running_services: Dict[str, se.ServiceExeBase] = {}
 
+    def my_services(self):
+        print(f"My {self.agent_name} available services are: {self.available_services}")
+        return self.available_services
+
+    # MARK: Functions concerning the running of services 
     def start_service(self, service, **kwargs) -> se.ServiceExeBase:
         assert self.available_services, "No services exist!"
-        assert service in self.available_services, f"Can't run {service}"
+        assert service in self.available_services, f"Can't run {service} -- doesn't exist"
 
         package = {
             'ip': self.broker,
-            'port': self.port,
+            'port': 5555,       # ! fix this here, by default broker uses port 5555
             'own_port': self.port,
-            'verbose': True,
+            'verbose': False,       # don't need workers in service_exes to be verbose
             'result_q': self.result_q,
+            'got_req_q': self.got_req_q,
             'inputs': kwargs
         }
         service_exe = self.service_handler(service, kwargs=package)
@@ -59,10 +76,24 @@ class Agent(object):
 
     def service_handler(self, service: str, kwargs) -> se.ServiceExeBase:
         if service == SERVICE.ECHO:
-            return serviceExeEcho.ServiceExeEcho(self.agent_name)
+            from auxo_olympus.lib.services.serviceExeEcho import serviceExeEcho
+            return serviceExeEcho.ServiceExeEcho(self.agent_name, kwargs)
 
         elif service == SERVICE.SUMNUMS:
+            from auxo_olympus.lib.services.serviceExeSumNums import serviceExeSumNums
             return serviceExeSumNums.ServiceExeSumNums(self.agent_name, kwargs)
+
+        elif service == SERVICE.VERTEXCOLORING:
+            from auxo_olympus.lib.services.serviceExeVertexColoring import serviceExeVertexColoring
+            return serviceExeVertexColoring.ServiceExeVertexColoring(self.agent_name, kwargs)
+
+        elif service == SERVICE.FEDERATEDLEARNING:
+            from auxo_olympus.lib.services.serviceExeFederatedLearning import serviceExeFederatedLearning
+            return serviceExeFederatedLearning.ServiceExeFederatedLearning(self.agent_name, kwargs)
+
+        elif service == SERVICE.HYBRIDSOLAR:
+            from auxo_olympus.lib.services.serviceExeHybridSolar import serviceExeHybridSolar
+            return serviceExeHybridSolar.ServiceExeHybridSolar(self.agent_name, kwargs)
 
     def run(self, initial_service=None, **kwargs):
         """ Runs a single service to completion/interruption """
@@ -72,26 +103,48 @@ class Agent(object):
             raise Exception(f'Something went wrong {repr(e)}')
 
         assert curr_service
-        while self.result_q.empty():
-            try:
-                pass
-            except KeyboardInterrupt:
-                break
+
+        t_end = time.time() + self.TIMEOUT + 60*100
+        try:
+            while self.result_q.empty() and time.time() < t_end:
+                if not self.got_req_q.empty():
+                    t_end = time.time() + self.TIMEOUT
+                    _ = self.got_req_q.get(block=False)
+
+            else:
+                try:
+                    status = self.result_q.get(block=False)     # pop from queue
+                except queue.Empty:
+                    status = MDP.TIMEOUT
+
+                if status == MDP.SUCCESS:
+                    print(f'{initial_service} successfully completed :)')
+                elif status == MDP.FAIL:
+                    print(f'{initial_service} failed :(')
+                elif status == MDP.TIMEOUT:
+                    print(f'{initial_service} timed out :(')
+
+                assert self.result_q.empty()
+                assert self.got_req_q.empty()
+
+        except KeyboardInterrupt:
+            pass
+
+        self.cleanup(service_name=initial_service)
+
+    def cleanup(self, service_name: str):
+        if service_name == 'ALL':
+            for service_name, service in self.running_services.items():
+                if service.is_alive():
+                    service.join(0.0)
+
+            self.running_services.clear()
         else:
-            status = self.result_q.get()     # pop from queue
-            if status == MDP.SUCCESS:
-                print(f'{initial_service} successfully completed :)')
-            elif status == MDP.FAIL:
-                print(f'{initial_service} failed :(')
-            self.cleanup()
+            curr_service = self.running_services[service_name]
+            if curr_service.is_alive():
+                curr_service.join(0.0)
 
-    def cleanup(self):
-        # FIXME: Cleanup is not closing all the threads
-        for service_name, service in self.running_services.items():
-            if service.is_alive():
-                service.join(0.0)
-
-        self.running_services.clear()
+            self.running_services.pop(service_name)
 
 
 def main():
@@ -100,12 +153,15 @@ def main():
     parser.add_argument('-port', default=5555, type=int, help='port to listen through')
     parser.add_argument('-service', default='echo', type=str, help='initial service for the agent')
     parser.add_argument('agent_name', type=str, help='agent\'s name')
-    parser.add_argument("-v", default=False, type=bool, help='verbose output')
+    parser.add_argument("--v", default=False, action='store_true', help='verbose output')
     parser.add_argument("-d", '--inputs', type=json.loads, help='inputs that correspond to the service')
+    parser.add_argument("--t", default=False, action='store_true', help='whether to have timeout')
+    parser.add_argument("--no-t", dest='t', action='store_false', help='whether to have timeout')
 
     args = parser.parse_args()
 
     print(args)
+    print("#"*40)
 
     verbose = args.v
     broker_addr = args.broker_ip
@@ -113,9 +169,12 @@ def main():
     agent_name = args.agent_name
     service = args.service
     inputs: dict = args.inputs
+    timeout: bool = args.t
 
     # Instantiate and dispatch the worker
     agent = Agent(agent_name, broker_addr, port, verbose)
+    if not timeout:
+        agent.TIMEOUT = math.inf
     agent.run(initial_service=service, **inputs)
 
 

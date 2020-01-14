@@ -1,15 +1,18 @@
-from auxo_olympus.lib.entities.mdcliapi import MajorDomoClient
-
+import math
 import time
 import json
 import argparse
+
+
+from auxo_olympus.lib.utils.zhelpers import jsonify_nparray, restore_nparray
+from auxo_olympus.lib.entities.mdcliapi import MajorDomoClient
 
 
 # Note how the client has no access to the service class definitions in MDP
 # TODO: Break down the requests into request classes
 
 class Client(object):
-    TIMEOUT: int = 10       # seconds
+    TIMEOUT: int = 100       # seconds
 
     def __init__(self, client_name, broker, port, verbose, service):
         self.client_name = client_name
@@ -62,7 +65,7 @@ def main():
     parser.add_argument('-port', default=5555, type=int, help='port to listen through')
     parser.add_argument('-service', default='echo', type=str, help='client service request')
     parser.add_argument('client_name', type=str, help='client\'s name')
-    parser.add_argument("-v", default=False, type=bool, help=' verbose output')
+    parser.add_argument("--v", default=False, action='store_true', help='verbose output')
     parser.add_argument("-d", '--inputs', type=json.loads)
 
     args = parser.parse_args()

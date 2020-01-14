@@ -1,7 +1,9 @@
 import zmq
 import time
 import json
+import pickle 
 import threading
+import jsonpickle
 from queue import Queue
 from typing import Dict, Any
 
@@ -66,7 +68,6 @@ class Peer(object):
                     print(self.peer_name, "Queue:", list(self.request_queue.queue))
                 current_request = self.request_queue.get()
 
-                # Do some processing on current_request
                 time.sleep(0.1)
 
             time.sleep(1)
@@ -150,24 +151,26 @@ class PeerPort(Peer):
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         super(PeerPort, self).__init__(endpoint, peer_name, peers, verbose)
 
+        self.leader_force_alive = True
+
     # override process_queue
     def process_queue_thread(self):
-        # Only for debugging
         while True:
             if not self.request_queue.empty():
-                if self.verbose:
+                if self.verbose:       #! 
                     print(self.peer_name, "Queue:", list(self.request_queue.queue))
                 msg: Any = self.request_queue.get()[0]
 
                 try:
                     msg: dict = json.loads(msg)
-                except Exception as e:
-                    print("Failed", repr(e))
+                except UnicodeDecodeError:
+                    # issue is probably because not JSON serializable, so use pickle to load
+                    msg: dict = pickle.loads(msg)
 
                 command: bytes = msg['command'].encode('utf8')
                 self.command_handler(msg, command)
 
-            time.sleep(0.5)
+            time.sleep(0.001)
 
     def command_handler(self, msg, command):
         peer_identity: bytes = msg['origin'].encode('utf8')
@@ -179,8 +182,14 @@ class PeerPort(Peer):
 
             payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}
             payload: dict = strip_of_bytes(payload)
-            jsonified_payload: bytes = json.dumps(payload).encode('utf8')
 
+            try:
+                jsonified_payload: bytes = json.dumps(payload).encode('utf8')
+            except TypeError:
+                # object of type "Custom Object" is not JSON serializable, use pickle 
+                jsonified_payload: bytes = pickle.dumps(payload) # jsonpickle.encode(payload)
+
+            # print('sending reply!', jsonified_payload)
             self.send(peer_ident=peer_identity, payload=jsonified_payload)
 
         elif command == MDP.W_REPLY:
@@ -191,6 +200,7 @@ class PeerPort(Peer):
 
         elif command == MDP.W_DISCONNECT:
             info: str = msg['info']
+            self.leader_force_alive = False
             if info == 'DONE':
                 self.stop()
 
