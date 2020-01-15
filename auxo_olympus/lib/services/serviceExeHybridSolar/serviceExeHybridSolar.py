@@ -88,7 +88,7 @@ class ServiceExeHybridSolar(ServiceExeBase):
 
                 # self.solicit(battery_peers, solicitation)
             
-                print('hey', battery_peers)
+                print('other batteries', battery_peers)
 
     # MARK: Functions relevant to solarpanel asset 
     def find_battery_peers(self) -> Dict[bytes, str]: 
@@ -100,11 +100,11 @@ class ServiceExeHybridSolar(ServiceExeBase):
 
         send_to: List[bytes] or Dict[bytes, str] = self.peer_port.peers     # send to all peers
         # self.request_from_peers(state='my_asset_type', send_to=send_to)
-        self.request_from_peers(state='my_asset', send_to=send_to)
+        self.request_from_peers(state='my_asset_type', send_to=send_to)
 
         battery_peers: Dict[bytes, str] = {}
         for peer_name, peer_data in self.peer_port.state_space['other_peer_data'].items():
-            if peer_data['my_asset'].asset_type == 'battery':
+            if peer_data['my_asset_type'] == 'battery':
                 peer_name: bytes = peer_name.encode('utf8')
                 battery_peers[peer_name] = self.peer_port.peers[peer_name]
 

@@ -1,5 +1,7 @@
 import os
+import zmq 
 import json
+import logging 
 import threading
 from pathlib import Path
 from typing import List, Dict
@@ -62,6 +64,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
                 reply = self.process(request, self.worker, self.inputs)
             except Exception as e:
                 status = MDP.FAIL
+                logging.exception("Exception was thrown!")
                 print(f"Error: {repr(e)}")
 
             _ = self.worker.recv(reply)     # send reply, don't get msg back
@@ -87,18 +90,23 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         pass
 
     # P2P suite
-    def request_from_peers(self, state: str, send_to: List[bytes] or Dict[bytes, str]):
+    def request_from_peers(self, state: str, send_to: Dict[bytes, str]):
         # Send request to all attached peers asking for particular information, recall that we access the PeerPort object
-        for peer_identity in send_to:
+        context = zmq.Context.instance()
+        
+        for peer_identity, peer_addr in send_to.items():
+            socket = context.socket(zmq.REQ)
+            socket.connect(peer_addr)
+
             request: dict = strip_of_bytes(
                 {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}
             )
             request: bytes = json.dumps(request).encode('utf8')
-            self.peer_port.send(peer_identity, payload=request)
+            socket.send(request)
 
-        while len(self.peer_port.state_space['other_peer_data']) != len(self.peer_port.peers):
-            # Wait until we receive everything from all the peers
-            pass
+            # TODO: This is sequential, which is no good because asynchronous, figure out a solution later
+            msg = socket.recv_multipart()
+            self.peer_port.process_reply(msg)
 
     def inform_peers(self, send_to: List[bytes] or Dict[bytes, str]):
         assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
