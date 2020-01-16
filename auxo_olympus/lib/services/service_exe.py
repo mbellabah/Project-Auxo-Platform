@@ -1,6 +1,7 @@
 import os
 import zmq 
 import json
+import pickle 
 import logging 
 import threading
 from pathlib import Path
@@ -14,7 +15,6 @@ from auxo_olympus.lib.utils import MDP
 
 # MARK: to be imported from other MDP
 s = None
-
 
 # TODO: Standardize the docstrings for the process method in each of these classes
 
@@ -90,24 +90,57 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         pass
 
     # P2P suite
-    def request_from_peers(self, state: str, send_to: Dict[bytes, str]):
+    def request_from_peers(self, state: str, send_to: Dict[bytes, str], info=None):
         # Send request to all attached peers asking for particular information, recall that we access the PeerPort object
+        expected_num_replies = len(send_to)
+        send_to_set: set = set(send_to)
+
         context = zmq.Context.instance()
-        
+
+        poller = zmq.Poller()
+        poller_timeout = 2500
+
         for peer_identity, peer_addr in send_to.items():
-            socket = context.socket(zmq.REQ)
+            socket = context.socket(zmq.DEALER) 
             socket.connect(peer_addr)
+            poller.register(socket, zmq.POLLIN)
 
             request: dict = strip_of_bytes(
-                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state, 'info': info}
             )
-            request: bytes = json.dumps(request).encode('utf8')
-            socket.send(request)
+            
+            try: 
+                request: bytes = json.dumps(request).encode('utf8')
+            except (TypeError, UnicodeEncodeError): 
+                request: bytes = pickle.dumps(request)
 
-            # TODO: This is sequential, which is no good because asynchronous, figure out a solution later
-            msg = socket.recv_multipart()
-            self.peer_port.process_reply(msg)
+            packaged_request = [b"", request]
+            socket.send_multipart(packaged_request)
 
+        # blocking: wait for replies, although replies from peers can come in asynchronously
+        seen_peers = set() 
+        while True: 
+            try: 
+                sockets = dict(poller.poll(poller_timeout))
+            except KeyboardInterrupt: 
+                break 
+            
+            for socket in sockets:          # len(sockets) = 1 
+                """
+                msg:
+                frame 0: empty  <bytes>
+                frame 1: self ip <bytes>
+                frame 2: origin <bytes> 
+                frame 3: payload <bytes>
+                """
+                msg = socket.recv_multipart()
+                seen_peers.add(msg[2])      # add this peer (origin) to the set of seen peers 
+                self.peer_port.process_reply(msg)
+
+            if len(seen_peers & send_to_set) == expected_num_replies:
+                break 
+
+    #! Deperecated 
     def inform_peers(self, send_to: List[bytes] or Dict[bytes, str]):
         assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
 

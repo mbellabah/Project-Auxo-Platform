@@ -102,8 +102,8 @@ class Peer(object, metaclass=ABCMeta):
         # basic request
         # Frame 0: origin, self identity
         # Frame 1: msg
-        msg = [self.peer_name, payload]
-        msg = [peer_identity] + msg
+        msg = [self.peer_name, payload]   
+        msg = [peer_identity] + msg  
 
         socket.send_multipart(msg)
 
@@ -129,6 +129,7 @@ class PeerPort(Peer):
             msg: dict = pickle.loads(msg)
 
         if self.verbose: 
+            # msg example: {'origin': 'A02.hybridsolar.peer', 'command': '\x02', 'request_state': 'my_asset_type', 'info': None}
             print("\n\nI've been asked for something", msg)
 
         command: bytes = msg['command'].encode('utf8')
@@ -141,10 +142,17 @@ class PeerPort(Peer):
 
     def process_reply(self, msg):   
         """
+        frame 0: empty 
+        frame 1: self address
+        frame 2: origin name 
+        frame 3: payload 
+
+        after pop 
         frame 0: self address
-        frame 1: origin name 
-        frame 2: payload 
+        frame 2: origin name 
+        frame 3: payload 
         """
+        _ = msg.pop(0)
         payload = msg[2]
 
         try:
@@ -159,15 +167,26 @@ class PeerPort(Peer):
         command: bytes = payload['command'].encode('utf8')
         self.command_handler(payload, command)
 
-    def command_handler(self, payload, command) -> bytes or None:
-        peer_identity: bytes = payload['origin'].encode('utf8')
+    def command_handler(self, msg, command) -> bytes or None:
+        peer_identity: bytes = msg['origin'].encode('utf8')
 
         if command == MDP.W_REQUEST:
-            # I've been requested -- send reply with info
-            request_state: str = payload['request_state']
-            reply_state: Any or None = self.state_space.get(request_state, None)
+            """
+            When being solicited, request_state = None, info = Any
+            When being requested for state, request_state = Any, info = Any or None 
+            """
 
-            payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}
+            # I've been requested -- send reply with info
+            request_state: str or None = msg['request_state']    
+            info: Any or None = msg['info']     
+
+            if request_state: 
+                reply_state: Any or None = self.state_space.get(request_state, None)
+                payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}            
+            elif info: 
+                self.state_space['other_peer_data'][peer_identity.decode('utf8')] = {'solicitation_info': info}
+                payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': None}
+                
             payload: dict = strip_of_bytes(payload)
 
             try:
@@ -177,17 +196,16 @@ class PeerPort(Peer):
                 jsonified_payload: bytes = pickle.dumps(payload) # jsonpickle.encode(payload)
 
             return jsonified_payload
-            # self.send(peer_ident=peer_identity, payload=jsonified_payload)
 
         elif command == MDP.W_REPLY:
             # Only ever really get other peers' data if self is the leader peer-port
-            requested_state: str = payload['request_state']
-            requested_state_data: str = payload['request_data']
+            requested_state: str = msg['request_state']
+            requested_state_data: str = msg['request_data']
             self.state_space['other_peer_data'][peer_identity.decode('utf8')] = {requested_state: requested_state_data}
             return None 
 
-        elif command == MDP.W_DISCONNECT:
-            info: str = payload['info']
-            self.leader_force_alive = False
-            if info == 'DONE':
-                self.stop()
+        # elif command == MDP.W_DISCONNECT:
+        #     info: str = msg['info']
+        #     self.leader_force_alive = False
+        #     if info == 'DONE':
+        #         self.stop()
