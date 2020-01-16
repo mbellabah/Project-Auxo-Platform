@@ -13,6 +13,8 @@ input: {
 }
 
 state_space {'other_peer_data': {'A02.sumnums.peer': {'my_summand': 8}}, 'my_summand': 2, 'target_number': 10}
+
+Leader based structure 
 """
 
 import time
@@ -59,7 +61,7 @@ class ServiceExeSumNums(ServiceExeBase):
         time.sleep(self.BIND_WAIT)
 
         if self.leader_bool:
-            send_to: List[bytes] or Dict[bytes, str] = self.peer_port.peers
+            send_to: Dict[bytes, str] = self.peer_port.peers
 
             self.request_from_peers(state='my_summand', send_to=send_to)
 
@@ -70,9 +72,6 @@ class ServiceExeSumNums(ServiceExeBase):
             payload = self.work(all_nums=all_summands, target=target_number)
             reply = {'reply': payload, 'origin': self.worker_name}
 
-            # inform peers that leader is done and so they can die
-            self.inform_peers(send_to=send_to)     # Peers that are not leaders will shutdown themselves
-            self.peer_port.stop()
         else:
             reply = None
 
