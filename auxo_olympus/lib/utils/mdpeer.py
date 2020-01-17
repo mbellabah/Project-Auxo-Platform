@@ -20,7 +20,7 @@ class Peer(object, metaclass=ABCMeta):
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         self.endpoint = endpoint
         self.peer_name: bytes = peer_name.encode("utf8")        # format: A01.echo.peer
-        self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peer': str}
+        self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peer': ip_addr}
         self.state_space: Dict[str, Any] = {'other_peer_data': {}}
         self.shutdown_flag: bool = False
 
@@ -183,6 +183,7 @@ class PeerPort(Peer):
             if request_state: 
                 reply_state: Any or None = self.state_space.get(request_state, None)
                 payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}            
+            
             elif info: 
                 self.state_space['other_peer_data'][peer_identity.decode('utf8')] = {'solicitation_info': info}
                 payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': None}
@@ -201,6 +202,7 @@ class PeerPort(Peer):
             # Only ever really get other peers' data if self is the leader peer-port
             requested_state: str = msg['request_state']
             requested_state_data: str = msg['request_data']
+
             self.state_space['other_peer_data'][peer_identity.decode('utf8')] = {requested_state: requested_state_data}
             return None 
 

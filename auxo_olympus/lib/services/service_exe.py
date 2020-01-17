@@ -1,5 +1,6 @@
 import os
 import zmq 
+import time 
 import json
 import pickle 
 import logging 
@@ -90,7 +91,8 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         pass
 
     # P2P suite
-    def request_from_peers(self, state: str, send_to: Dict[bytes, str], info=None):
+    def request_from_peers(self, state: str, send_to: Dict[bytes, str], info=None):  
+        # TODO: Implement some type of timeout function on this 
         # Send request to all attached peers asking for particular information, recall that we access the PeerPort object
         expected_num_replies = len(send_to)
         send_to_set: set = set(send_to)
@@ -119,6 +121,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
         # blocking: wait for replies, although replies from peers can come in asynchronously
         seen_peers = set() 
+
         while True: 
             try: 
                 sockets = dict(poller.poll(poller_timeout))
@@ -135,6 +138,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
                 """
                 msg = socket.recv_multipart()
                 seen_peers.add(msg[2])      # add this peer (origin) to the set of seen peers 
+                
                 self.peer_port.process_reply(msg)
 
             if len(seen_peers & send_to_set) == expected_num_replies:
