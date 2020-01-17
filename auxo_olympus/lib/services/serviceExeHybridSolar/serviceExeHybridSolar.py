@@ -30,17 +30,13 @@ class ServiceExeHybridSolar(ServiceExeBase):
         self.service_name = 'hybridsolar'
         self.name = f'{self.service_name}-Thread'
 
-        self.DEBUG = True 
+        self.DEBUG = False 
 
         # Getting all the relevant attributes from self.inputs (passed through the command line) 
         assert self.inputs, "Need to provide kwargs (command line) when initing the service"
 
         self.asset_type: str = self.inputs['asset_type'] 
-        if self.asset_type == 'battery':
-            self.asset_obj = Battery(self.service_name, **self.inputs['asset_obj_kwargs'])
-        elif self.asset_type == 'solarpanel':
-            self.asset_obj = SolarPanel(self.service_name, **self.inputs['asset_obj_kwargs'])
-
+    
     def process(self, *args, **kwargs) -> dict:
         try: 
             request: dict = json.loads(args[0])     # the client's request 
@@ -53,6 +49,12 @@ class ServiceExeHybridSolar(ServiceExeBase):
 
         assert self.peer_port, "This service requires peers to exist!"
         assert self.inputs, "Need to provide kwargs whenn initing service"
+
+        if self.asset_type == 'battery':
+            self.asset_obj = Battery(self.service_name, peer_port=self.peer_port, **self.inputs['asset_obj_kwargs'])
+        
+        elif self.asset_type == 'solarpanel':
+            self.asset_obj = SolarPanel(self.service_name, peer_port=self.peer_port, **self.inputs['asset_obj_kwargs'])
 
         # let agent who holds the service-exe know that it has received a request by signaling on the got_req_q
         self.got_req_q.put('ADD')
@@ -87,7 +89,9 @@ class ServiceExeHybridSolar(ServiceExeBase):
                 if solicitation:     
                     ask = my_asset.construct_ask(solicitation)
 
-                    if self.DEBUG: print('\n\n\nmy ask is:', ask)
+                    # put asset into state 
+                    self.peer_port.state_space[f'{ask.recipient}-ask'] = ask 
+                    if self.DEBUG: print(self.peer_port.state_space)
 
         # SOLARPANEL
         elif self.asset_type == 'solarpanel': 
@@ -103,3 +107,6 @@ class ServiceExeHybridSolar(ServiceExeBase):
                 # receieves asks from battery peers, hosted within the solarpanel object 
                 solicitation: Offer = my_asset.construct_solicitation()
                 my_asset.solicit(self, battery_peers, solicitation)    
+
+                # Evaluate the asks, pick the best, and notify the sender
+                my_asset.accept_best_ask(solicitation)
