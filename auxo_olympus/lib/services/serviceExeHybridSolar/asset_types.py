@@ -60,12 +60,12 @@ class Battery(object):
         if self.peer_port: self.name = self.peer_port.peer_name.decode('utf8')    
         
         self.capacity: float = 2.0 
-        self.open_offers = []
-        self.commitements = []
+        self.open_offers = {}
+        self.commitments = []
 
     def construct_ask(self, solicitation: Offer) -> Offer or None:
         """
-        Sumbits an ask in response to a solictation by a solar-panel 
+        Sumbits an ask in response to a solicitation by a solar-panel 
         """
         requested_capacity = solicitation.get_params(param='requested_capacity')
         expiration_date: datetime.datetime = solicitation.get_params(param='expiration_date')
@@ -90,7 +90,7 @@ class Battery(object):
             ask_params = {'ask_price': ask_price, 'requested_capacity': requested_capacity, 'expiration_date': expiration_date}
             ask = Offer(ask_params, offer_type='ASK', sender=self.name, recipient=solicitation.sender)
 
-            self.open_offers.append(ask)
+            self.open_offers[solicitation.sender] = ask 
             return ask 
     
     def ask_accepted(self, ask):
@@ -100,13 +100,15 @@ class Battery(object):
         ask.close_offer()
 
         self.check_for_violations()         # noisy assertion 
-        self.commitements.append(ask)
+        self.commitments.append(ask)
+
+        return True 
 
     def remove_offer(self, offer):
-        self.open_offers.remove(offer)
+        del self.open_offers[offer.recipient]
 
     def check_for_violations(self): 
-        commitment_total = sum([ask.get_params(param='requested_capacity') for ask in self.commitements])
+        commitment_total = sum([ask.get_params(param='requested_capacity') for ask in self.commitments])
         if commitment_total > self.rated_capacity - self.capacity:
             raise AssertionError('Commitments have a violation within them')
 
@@ -133,6 +135,8 @@ class SolarPanel(object):
 
         self.threshold: float = 1000.0     # expected revenue that is acceptable
         self.received_asks = defaultdict(list)         # these are the asks received from this solarpanel's battery peers 
+
+        self.portfolio = {}
 
     def expected_revenue(self, reliability) -> float: 
         """
@@ -228,16 +232,23 @@ class SolarPanel(object):
                 break 
             time.sleep(0.2)
         
-    def accept_best_ask(self, solicitation: Offer): 
+    def accept_best_ask(self, obj: serviceExeHybridSolar, solicitation: Offer): 
         """
         Selects the best ask and notifies the sender 
         """
         best_ask: Offer = self.select_best_ask(solicitation)
-        sender: bytes = best_ask.sender.encode('utf8')
-        send_to: Dict[bytes, str] = {sender: self.peer_port.peers[sender]}
 
-        print("HERE", send_to, best_ask)
+        # notify the sender
+        sender: str = best_ask.sender
+        sender_bytes: bytes = best_ask.sender.encode('utf8')
+        send_to: Dict[bytes, str] = {sender_bytes: self.peer_port.peers[sender_bytes]}
+
+        obj.request_from_peers(state='ask_accepted', send_to=send_to, args=(best_ask,))
     
+        # confirm that peer accepted the ask 
+        assert self.peer_port.state_space['other_peer_data'].get(sender, None), "Peer has not accepted the ask"
+        self.portfolio[sender] = best_ask 
+
 
 if __name__ == "__main__":
     # MARK: Playground 

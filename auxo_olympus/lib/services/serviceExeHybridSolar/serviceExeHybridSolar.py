@@ -48,11 +48,10 @@ class ServiceExeHybridSolar(ServiceExeBase):
         self.peer_port = worker.peer_port 
 
         assert self.peer_port, "This service requires peers to exist!"
-        assert self.inputs, "Need to provide kwargs whenn initing service"
+        assert self.inputs, "Need to provide kwargs when initing service"
 
         if self.asset_type == 'battery':
             self.asset_obj = Battery(self.service_name, peer_port=self.peer_port, **self.inputs['asset_obj_kwargs'])
-        
         elif self.asset_type == 'solarpanel':
             self.asset_obj = SolarPanel(self.service_name, peer_port=self.peer_port, **self.inputs['asset_obj_kwargs'])
 
@@ -76,7 +75,8 @@ class ServiceExeHybridSolar(ServiceExeBase):
         my_asset = self.peer_port.state_space['my_asset']
 
         # BATTERY 
-        if self.asset_type == 'battery':        
+        if self.asset_type == 'battery':   
+            self.peer_port.state_space['ask_accepted'] = my_asset.ask_accepted     
             self.worker.leader_bool = False 
 
             other_peer_data = self.peer_port.state_space['other_peer_data']
@@ -88,10 +88,7 @@ class ServiceExeHybridSolar(ServiceExeBase):
                 solicitation = peer_data.get('solicitation_info', None)
                 if solicitation:     
                     ask = my_asset.construct_ask(solicitation)
-
-                    # put asset into state 
                     self.peer_port.state_space[f'{ask.recipient}-ask'] = ask 
-                    if self.DEBUG: print(self.peer_port.state_space)
 
         # SOLARPANEL
         elif self.asset_type == 'solarpanel': 
@@ -104,9 +101,9 @@ class ServiceExeHybridSolar(ServiceExeBase):
                 battery_peers: Dict[bytes, str] = my_asset.find_battery_peers(self)
 
                 # Solar panel determines some level of capacity that it needs, along with the length of the offer (contract)
-                # receieves asks from battery peers, hosted within the solarpanel object 
+                # receives asks from battery peers, hosted within the solarpanel object 
                 solicitation: Offer = my_asset.construct_solicitation()
                 my_asset.solicit(self, battery_peers, solicitation)    
 
                 # Evaluate the asks, pick the best, and notify the sender
-                my_asset.accept_best_ask(solicitation)
+                my_asset.accept_best_ask(self, solicitation)

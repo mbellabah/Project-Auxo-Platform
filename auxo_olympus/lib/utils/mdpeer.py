@@ -44,8 +44,8 @@ class Peer(object, metaclass=ABCMeta):
 
         print(f"Initialized {self.peer_name}")
         print(f"{self.peer_name} has peers: {self.peers}")
-        line()
-        line()
+        for _ in range(3):
+            line()
 
     def tie_to_peers(self):
         # Tie this peer to all of the peers inside its peers dict
@@ -178,10 +178,14 @@ class PeerPort(Peer):
 
             # I've been requested -- send reply with info
             request_state: str or None = msg['request_state']    
-            info: Any or None = msg['info']     
+            info: Any or None = msg['info']   
+            args: Any or None = msg['args']  
 
             if request_state: 
-                reply_state: Any or None = self.state_space.get(request_state, None)
+                if args: 
+                    reply_state: Any = self.state_space[request_state](*args)
+                else:
+                    reply_state: Any or None = self.state_space.get(request_state, None)
                 payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}            
             
             elif info: 

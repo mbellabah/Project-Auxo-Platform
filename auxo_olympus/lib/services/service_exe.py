@@ -91,7 +91,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         pass
 
     # P2P suite
-    def request_from_peers(self, state: str, send_to: Dict[bytes, str], info=None):  
+    def request_from_peers(self, state: str, send_to: Dict[bytes, str], info=None, args=None):  
         # TODO: Implement some type of timeout function on this 
         # Send request to all attached peers asking for particular information, recall that we access the PeerPort object
         expected_num_replies = len(send_to)
@@ -108,7 +108,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
             poller.register(socket, zmq.POLLIN)
 
             request: dict = strip_of_bytes(
-                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state, 'info': info}
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state, 'info': info, 'args': args}
             )
             
             try: 
@@ -144,7 +144,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
             if len(seen_peers & send_to_set) == expected_num_replies:
                 break 
 
-    #! Deperecated 
+    #! Deprecated 
     def inform_peers(self, send_to: List[bytes] or Dict[bytes, str]):
         assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
 
