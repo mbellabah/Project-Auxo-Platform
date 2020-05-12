@@ -1,14 +1,19 @@
+import time 
 import random 
 import datetime 
+import multiprocessing
+from collections import defaultdict
 from typing import Tuple, Dict, Any
 from datetime import date, timedelta
 
+from auxo_olympus.lib.utils.zhelpers import line
+from auxo_olympus.lib.services.serviceExeHybridSolar import serviceExeHybridSolar
 # TODO: Code the dynamic behaviors for the solar panel and the battery
 
 
 # MARK: Offers
 class Offer(object):   
-    def __init__(self, params, offer_type='SOLICIT', sender=None, notes=None):
+    def __init__(self, params, offer_type='SOLICIT', sender=None, recipient=None, notes=None):
         """
         offer_type: one of [BID, ASK, SOLICIT]
         """
@@ -18,6 +23,7 @@ class Offer(object):
 
         self.offer_type = offer_type       
         self.sender = sender 
+        self.recipient = recipient
         self.closed = False 
         self.params: Dict[str, Any]= params
         self.notes = notes
@@ -36,8 +42,8 @@ class Offer(object):
     def get_time_created(self):
         return self.time_created
 
-    def __repr__(self):
-        return f"{self.sender}: {self.params}, notes: {self.notes}"
+    def __str__(self):
+        return f"{self.sender} to {self.recipient}: {self.params}, notes: {self.notes}"
 
 
 # MARK: Assets 
@@ -45,31 +51,36 @@ class Battery(object):
     """
     rated_capacity <float>: 
     """
-    def __init__(self, name, **kwargs):
+    def __init__(self, name, peer_port, **kwargs):
         self.asset_type = 'battery'
-        self.name = name + '-B'     # append with B for battery (for debugging)
+        # self.name = name + '-B'     # append with B for battery (for debugging)
         self.rated_capacity: float = kwargs['rated_capacity']
-
+        
+        self.peer_port = peer_port        
+        self.name = self.peer_port.peer_name.decode('utf8')    
+        
         self.capacity: float = 2.0 
-        self.open_offers = []
-        self.commitements = []
+        self.open_offers = {}
+        self.commitments = []
 
-    def construct_ask(self, requested_capacity, expiration_date: datetime.datetime) -> Offer or None:
+    def construct_ask(self, solicitation: Offer) -> Offer or None:
         """
-        Sumbits an ask in response to a solictation by a solar-panel 
+        Sumbits an ask in response to a solicitation by a solar-panel 
         """
+        requested_capacity = solicitation.get_params(param='requested_capacity')
+        expiration_date: datetime.datetime = solicitation.get_params(param='expiration_date')
+    
         todays_date = date.today()
-
         assert todays_date < expiration_date, "Contract has already expired" 
 
-        # For now, things are static # TODO: Make this not static 
+        # For now, things are static 
         if requested_capacity > self.rated_capacity - self.capacity: 
             # Not enough capacity to provide 
             return None 
         
         else: 
             # enough capacity 
-            days_till_expiration: int = (date.today() - expiration_date).days
+            days_till_expiration: int = (expiration_date - date.today()).days
 
             """
             Formula for ask price given c (requested capacity), d (days till expiration):
@@ -77,10 +88,10 @@ class Battery(object):
             """
             ask_price: float = 2.5 * (requested_capacity**2)/days_till_expiration
             ask_params = {'ask_price': ask_price, 'requested_capacity': requested_capacity, 'expiration_date': expiration_date}
+            ask = Offer(ask_params, offer_type='ASK', sender=self.name, recipient=solicitation.sender)
 
-            ask = Offer(ask_params, offer_type='ASK', sender=self.name)
-
-            self.open_offers.append(ask)
+            self.open_offers[solicitation.sender] = ask 
+            return ask 
     
     def ask_accepted(self, ask):
         self.remove_offer(ask)
@@ -89,13 +100,15 @@ class Battery(object):
         ask.close_offer()
 
         self.check_for_violations()         # noisy assertion 
-        self.commitements.append(ask)
+        self.commitments.append(ask)
+
+        return True 
 
     def remove_offer(self, offer):
-        self.open_offers.remove(offer)
+        del self.open_offers[offer.recipient]
 
     def check_for_violations(self): 
-        commitment_total = sum([ask.get_params(param='requested_capacity') for ask in self.commitements])
+        commitment_total = sum([ask.get_params(param='requested_capacity') for ask in self.commitments])
         if commitment_total > self.rated_capacity - self.capacity:
             raise AssertionError('Commitments have a violation within them')
 
@@ -104,20 +117,33 @@ class Battery(object):
         assert percentage <= 1.0 
         return percentage
 
+    # MARK: Main Loop
+    def main_loop(self):
+        print("A", self.open_offers)
+        print("B", self.commitments)
+        print("*"*30)
+        time.sleep(0.2)
+
 
 class SolarPanel(object):
     """
     rating <float>: 
     """
-    def __init__(self, name, **kwargs): 
+    def __init__(self, name, peer_port, **kwargs): 
         self.asset_type = 'solarpanel'
-        self.name = name + '-SP'        # append with SP for solar-panel (for debugging)
+        # self.name = name + '-SP'        # append with SP for solar-panel (for debugging)
         self.rating: float = kwargs['rating'] 
 
+        self.peer_port = peer_port
+        self.name = self.peer_port.peer_name.decode('utf8')
+
+        self.solicit_timeout: int = 10    # seconds 
         self.reliability = round(random.uniform(0, 1), 2)
 
         self.threshold: float = 1000.0     # expected revenue that is acceptable
-        self.received_asks = None          # these are the asks received from this solarpanel's battery peers 
+        self.received_asks = defaultdict(list)         # these are the asks received from this solarpanel's battery peers 
+
+        self.portfolio = {}
 
     def expected_revenue(self, reliability) -> float: 
         """
@@ -153,12 +179,88 @@ class SolarPanel(object):
         requested_capacity = self.construct_requested_capacity()
 
         solicitation_params = {'requested_capacity': requested_capacity, 'expiration_date': expiration_date}
-        solicitation = Offer(solicitation_params, offer_type='SOLICIT', sender=self.name, notes=None)
+        solicitation = Offer(solicitation_params, offer_type='SOLICIT', sender=self.name, recipient='ANY', notes=None)
         return solicitation 
 
     def solicitation_accepted(self, solicitation):
         solicitation.close_offer()
         self.reliability = self.compute_reliability(solicitation.get_params(param='requested_capacity')) 
+
+    def add_ask(self, solicitation, ask):
+        self.received_asks[solicitation].append(ask)
+
+    def select_best_ask(self, solicitation: Offer) -> Offer:
+        assert self.received_asks[solicitation], "no asks have been received"
+
+        sorted_asks = sorted(self.received_asks[solicitation], key=lambda ask: ask.get_params(param='ask_price'))     # sort by ask price 
+        return sorted_asks[0]
+
+    def find_battery_peers(self, obj: serviceExeHybridSolar) -> Dict[bytes, str]: 
+        """
+        Finds the batteries among the peers, only the solarpanel can do this
+        returns: dict of peer names and their endpoint for peers that are batteries 
+        """
+        assert obj.asset_type == 'solarpanel', "Only the solar panel can see battery peers in this service"
+
+        send_to: Dict[bytes, str] = obj.peer_port.peers     # send to all peers
+        # self.request_from_peers(state='my_asset_type', send_to=send_to)
+        obj.request_from_peers(state='my_asset_type', send_to=send_to)
+
+        battery_peers: Dict[bytes, str] = {}
+        for peer_name, peer_data in obj.peer_port.state_space['other_peer_data'].items():
+            if peer_data['my_asset_type'] == 'battery':
+                peer_name: bytes = peer_name.encode('utf8')
+                battery_peers[peer_name] = obj.peer_port.peers[peer_name]
+
+        return battery_peers
+
+    def solicit(self, obj: serviceExeHybridSolar, battery_peers: Dict[bytes, str], solicitation: Offer):
+        """
+        Solicit the batteries, then receives the asks for said solicitation 
+        """
+        send_to: Dict[bytes, str] = battery_peers
+        if obj.DEBUG: print('My solicitation:', solicitation)
+
+        obj.request_from_peers(state=None, send_to=send_to, info=solicitation)
+
+        expected_num_replies = len(send_to)
+        seen_peers = set() 
+        send_to_set = set(x.decode('utf8') for x in send_to)
+
+        while True: 
+            obj.request_from_peers(state=f'{self.name}-ask', send_to=send_to)
+            for other_peer, peer_data in self.peer_port.state_space['other_peer_data'].items():
+                peer_ask = peer_data.get(f'{self.name}-ask', None)
+                if peer_ask:
+                    self.add_ask(solicitation, peer_ask)
+                    seen_peers.add(other_peer)
+
+            if len(seen_peers & send_to_set) == expected_num_replies:
+                break 
+            time.sleep(0.2)
+        
+    def accept_best_ask(self, obj: serviceExeHybridSolar, solicitation: Offer): 
+        """
+        Selects the best ask and notifies the sender 
+        """
+        best_ask: Offer = self.select_best_ask(solicitation)
+
+        # notify the sender
+        sender: str = best_ask.sender
+        sender_bytes: bytes = best_ask.sender.encode('utf8')
+        send_to: Dict[bytes, str] = {sender_bytes: self.peer_port.peers[sender_bytes]}
+
+        obj.request_from_peers(state='ask_accepted', send_to=send_to, args=(best_ask,))
+    
+        # confirm that peer accepted the ask 
+        assert self.peer_port.state_space['other_peer_data'].get(sender, None), "Peer has not accepted the ask"
+        self.portfolio[sender] = best_ask 
+
+    # MARK: Main Loop
+    def main_loop(self):
+        print("A", self.portfolio)
+        print("*"*30)
+        time.sleep(0.2)
 
 
 if __name__ == "__main__":

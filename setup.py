@@ -9,5 +9,5 @@ setup(
       description='Auxo Olympus Platform',
       packages=packages,
       zip_safe=False,
-      install_requires=['pyzmq', 'torch']
+      install_requires=['pyzmq', 'torch', 'numpy']
 )

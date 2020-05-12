@@ -3,45 +3,39 @@ import time
 import json
 import pickle 
 import threading
-import jsonpickle
 from queue import Queue
 from typing import Dict, Any
+
+from abc import ABCMeta, abstractmethod
 
 import auxo_olympus.lib.utils.MDP as MDP
 from auxo_olympus.lib.utils.zhelpers import line, strip_of_bytes
 
-# TODO: Fix the slow joiner issue, where the first message appears to be dropped
 
-
-class Peer(object):
+class Peer(object, metaclass=ABCMeta):
     REQUEST_TIMEOUT = 2500      # 2.5 seconds
     BIND_WAIT = 0.15     # secs
+    URL_INDEPENDENT_PEER_PORTS = "inproc://independent_peer_ports"
 
     def __init__(self, endpoint: str, peer_name: str, peers: dict, verbose=True):
         self.endpoint = endpoint
         self.peer_name: bytes = peer_name.encode("utf8")        # format: A01.echo.peer
-        self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peer': str}
+        self.peers: Dict[bytes, str] = peers        # format: {b'A02.sumnums.peer': ip_addr}
         self.state_space: Dict[str, Any] = {'other_peer_data': {}}
         self.shutdown_flag: bool = False
 
-        self.request_queue = Queue()
         self.verbose = verbose
 
-        self.poller = zmq.Poller()
+        context = zmq.Context.instance()
 
-        self.send_socket = zmq.Context().socket(zmq.ROUTER)
+        self.send_socket = context.socket(zmq.ROUTER)
 
-        self.recv_socket = zmq.Context().socket(zmq.DEALER)
+        self.recv_socket = context.socket(zmq.DEALER)
         self.recv_socket.identity = self.peer_name          # format: A01.echo.peer
-
-        # initialize poller set
-        self.poller.register(self.recv_socket, zmq.POLLIN)
-        self.poller.register(self.send_socket, zmq.POLLIN)
-
-        self.process_queue()
 
         try:
             self.send_socket.bind(self.endpoint)
+            self.recv_socket.bind(self.URL_INDEPENDENT_PEER_PORTS)
         except zmq.error.ZMQError:
             pass
         finally:
@@ -50,8 +44,8 @@ class Peer(object):
 
         print(f"Initialized {self.peer_name}")
         print(f"{self.peer_name} has peers: {self.peers}")
-        line()
-        line()
+        for _ in range(3):
+            line()
 
     def tie_to_peers(self):
         # Tie this peer to all of the peers inside its peers dict
@@ -59,53 +53,34 @@ class Peer(object):
         for peer_endpoint in self.peers.values():
             self.recv(peer_endpoint)
 
-    def process_queue_thread(self):
-        """ Process the entry in the queue """
+        self.start_proxy()
 
-        while True:
-            if not self.request_queue.empty():
-                if self.verbose:
-                    print(self.peer_name, "Queue:", list(self.request_queue.queue))
-                current_request = self.request_queue.get()
+    def proxy_thread(self):
+        zmq.proxy(self.send_socket, self.recv_socket)
 
-                time.sleep(0.1)
+    def start_proxy(self):
+        threading.Thread(target=self.proxy_thread).start()
 
-            time.sleep(1)
-
-    def process_queue(self):
-        thread = threading.Thread(target=self.process_queue_thread, name='Thread-request-queue')
-        thread.setDaemon(True)
-        thread.start()
-
-    def recv_thread(self, peer_endpoint: str):
+    def recv_thread(self, peer_endpoint: str, context=None):
         """
         recv thread, receives information in a loop
         :param peer_endpoint: the other peer's endpoint i.e. tcp://*:*
         :return:
         """
-        self.recv_socket.connect(peer_endpoint)
-        self.recv_socket.linger = 0
+        context = context or zmq.Context.instance()
+        inproc_socket = context.socket(zmq.REP)
+        inproc_socket.connect(self.URL_INDEPENDENT_PEER_PORTS)
 
         while True:
+            msg = inproc_socket.recv_multipart()[0]
+            if self.verbose: 
+                print(self.peer_name, "received request:", msg)
 
-            try:
-                items = dict(self.poller.poll(self.REQUEST_TIMEOUT))
-            except KeyboardInterrupt:
-                break
+            self.process_request(inproc_socket, peer_endpoint.encode('utf8'), msg)
 
-            if items and self.recv_socket in items:
-                request = self.recv_socket.recv_multipart()
-                self.request_queue.put(request)     # add to the queue
-                if self.verbose:
-                    print(self.peer_name, ": Msg received:", request)
-
-                origin_peer = request.pop(0)
-                self.send_reply(origin_peer)
-
-            if items and self.send_socket in items:
-                reply = self.send_socket.recv_multipart()
-                if self.verbose:
-                    print(self.peer_name, ": Received ack!:", reply)
+    @abstractmethod
+    def process_request(self, socket: zmq.Socket, peer_endpoint: bytes, msg: Any):
+        self.send(socket, peer_endpoint, msg)
 
     def recv(self, peer_endpoint: str):
         """
@@ -117,7 +92,7 @@ class Peer(object):
         thread.setDaemon(True)
         thread.start()
 
-    def send(self, peer_ident: bytes, payload: bytes):
+    def send(self, socket: zmq.Socket, peer_identity: bytes, payload: bytes):
         """
 
         :param peer_ident: the identity (bytes) of the peer we're sending to
@@ -127,18 +102,10 @@ class Peer(object):
         # basic request
         # Frame 0: origin, self identity
         # Frame 1: msg
-        msg = [self.peer_name, payload]
-        msg = [peer_ident] + msg
+        msg = [self.peer_name, payload]   
+        msg = [peer_identity] + msg  
 
-        num_send: int = 1
-        for _ in range(num_send):
-            self.send_socket.send_multipart(msg)
-
-    def send_reply(self, peer):
-        # Frame 0: other peer identity
-        # Frame 1: self identity
-        # Frame 2: ack message
-        self.recv_socket.send_multipart([peer, b'ACK'])
+        socket.send_multipart(msg)
 
     def stop(self):
         """ Destroy context and close the socket """
@@ -153,34 +120,78 @@ class PeerPort(Peer):
 
         self.leader_force_alive = True
 
-    # override process_queue
-    def process_queue_thread(self):
-        while True:
-            if not self.request_queue.empty():
-                if self.verbose:       #! 
-                    print(self.peer_name, "Queue:", list(self.request_queue.queue))
-                msg: Any = self.request_queue.get()[0]
+    # override process_request in base Peer class 
+    def process_request(self, socket: zmq.Socket, peer_endpoint: bytes, msg: Any):
+        try: 
+            msg: dict = json.loads(msg)
+        except UnicodeDecodeError:
+            # issue is probably because not JSON serializable, so use pickle to load 
+            msg: dict = pickle.loads(msg)
 
-                try:
-                    msg: dict = json.loads(msg)
-                except UnicodeDecodeError:
-                    # issue is probably because not JSON serializable, so use pickle to load
-                    msg: dict = pickle.loads(msg)
+        if self.verbose: 
+            # msg example: {'origin': 'A02.hybridsolar.peer', 'command': '\x02', 'request_state': 'my_asset_type', 'info': None}
+            print("\n\nI've been asked for something", msg)
 
-                command: bytes = msg['command'].encode('utf8')
-                self.command_handler(msg, command)
+        command: bytes = msg['command'].encode('utf8')
+        payload = self.command_handler(msg, command)
+        
+        if payload: 
+            if self.verbose: 
+                print("\n\n\nSending", peer_endpoint, payload)
+            self.send(socket, peer_endpoint, payload)
 
-            time.sleep(0.001)
+    def process_reply(self, msg):   
+        """
+        frame 0: empty 
+        frame 1: self address
+        frame 2: origin name 
+        frame 3: payload 
 
-    def command_handler(self, msg, command):
+        after pop 
+        frame 0: self address
+        frame 2: origin name 
+        frame 3: payload 
+        """
+        _ = msg.pop(0)
+        payload = msg[2]
+
+        try:
+            payload: dict = json.loads(payload)
+        except UnicodeDecodeError:
+            # issue is probably because not JSON serializable, so use pickle to load
+            payload: dict = pickle.loads(payload)
+
+        if self.verbose: 
+            print("\n\nReceived this", payload) 
+
+        command: bytes = payload['command'].encode('utf8')
+        self.command_handler(payload, command)
+
+    def command_handler(self, msg, command) -> bytes or None:
         peer_identity: bytes = msg['origin'].encode('utf8')
 
         if command == MDP.W_REQUEST:
-            # I've been requested -- send reply with info
-            request_state: str = msg['request_state']
-            reply_state: Any or None = self.state_space.get(request_state, None)
+            """
+            When being solicited, request_state = None, info = Any
+            When being requested for state, request_state = Any, info = Any or None 
+            """
 
-            payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}
+            # I've been requested -- send reply with info
+            request_state: str or None = msg['request_state']    
+            info: Any or None = msg['info']   
+            args: Any or None = msg['args']  
+
+            if request_state: 
+                if args: 
+                    reply_state: Any = self.state_space[request_state](*args)
+                else:
+                    reply_state: Any or None = self.state_space.get(request_state, None)
+                payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': reply_state}            
+            
+            elif info: 
+                self.state_space['other_peer_data'][peer_identity.decode('utf8')] = {'solicitation_info': info}
+                payload: dict = {'origin': self.peer_name, 'command': MDP.W_REPLY, 'request_state': request_state, 'request_data': None}
+                
             payload: dict = strip_of_bytes(payload)
 
             try:
@@ -189,20 +200,18 @@ class PeerPort(Peer):
                 # object of type "Custom Object" is not JSON serializable, use pickle 
                 jsonified_payload: bytes = pickle.dumps(payload) # jsonpickle.encode(payload)
 
-            # print('sending reply!', jsonified_payload)
-            self.send(peer_ident=peer_identity, payload=jsonified_payload)
+            return jsonified_payload
 
         elif command == MDP.W_REPLY:
             # Only ever really get other peers' data if self is the leader peer-port
             requested_state: str = msg['request_state']
             requested_state_data: str = msg['request_data']
+
             self.state_space['other_peer_data'][peer_identity.decode('utf8')] = {requested_state: requested_state_data}
+            return None 
 
-        elif command == MDP.W_DISCONNECT:
-            info: str = msg['info']
-            self.leader_force_alive = False
-            if info == 'DONE':
-                self.stop()
-
-    def get_request_queue(self) -> Queue:
-        return self.request_queue
+        # elif command == MDP.W_DISCONNECT:
+        #     info: str = msg['info']
+        #     self.leader_force_alive = False
+        #     if info == 'DONE':
+        #         self.stop()

@@ -30,15 +30,13 @@ class ServiceExeHybridSolar(ServiceExeBase):
         self.service_name = 'hybridsolar'
         self.name = f'{self.service_name}-Thread'
 
+        self.DEBUG = False 
+
         # Getting all the relevant attributes from self.inputs (passed through the command line) 
         assert self.inputs, "Need to provide kwargs (command line) when initing the service"
 
         self.asset_type: str = self.inputs['asset_type'] 
-        if self.asset_type == 'battery':
-            self.asset_obj = Battery(self.service_name, **self.inputs['asset_obj_kwargs'])
-        elif self.asset_type == 'solarpanel':
-            self.asset_obj = SolarPanel(self.service_name, **self.inputs['asset_obj_kwargs'])
-
+    
     def process(self, *args, **kwargs) -> dict:
         try: 
             request: dict = json.loads(args[0])     # the client's request 
@@ -50,7 +48,12 @@ class ServiceExeHybridSolar(ServiceExeBase):
         self.peer_port = worker.peer_port 
 
         assert self.peer_port, "This service requires peers to exist!"
-        assert self.inputs, "Need to provide kwargs whenn initing service"
+        assert self.inputs, "Need to provide kwargs when initing service"
+
+        if self.asset_type == 'battery':
+            self.asset_obj = Battery(self.service_name, peer_port=self.peer_port, **self.inputs['asset_obj_kwargs'])
+        elif self.asset_type == 'solarpanel':
+            self.asset_obj = SolarPanel(self.service_name, peer_port=self.peer_port, **self.inputs['asset_obj_kwargs'])
 
         # let agent who holds the service-exe know that it has received a request by signaling on the got_req_q
         self.got_req_q.put('ADD')
@@ -69,48 +72,50 @@ class ServiceExeHybridSolar(ServiceExeBase):
         """
         Different assets 
         """
-        if self.asset_type == 'battery':
-            self.worker.leader_bool = False 
-            pass        # battery kinda waits 
+        my_asset = self.peer_port.state_space['my_asset']
 
+        # BATTERY 
+        if self.asset_type == 'battery':   
+            self.peer_port.state_space['ask_accepted'] = my_asset.ask_accepted     
+            self.worker.leader_bool = False 
+
+            other_peer_data = self.peer_port.state_space['other_peer_data']
+            while not other_peer_data: 
+                time.sleep(0.1)
+            
+            # other_peer_data is now populated 
+            for peer_name, peer_data in other_peer_data.items():
+                solicitation = peer_data.get('solicitation_info', None)
+                if solicitation:     
+                    ask = my_asset.construct_ask(solicitation)
+                    self.peer_port.state_space[f'{ask.recipient}-ask'] = ask 
+
+            while True:
+                try: 
+                    my_asset.main_loop()
+                except KeyboardInterrupt:
+                    break 
+
+        # SOLARPANEL
         elif self.asset_type == 'solarpanel': 
             self.worker.leader_bool = True 
-            my_reliability = self.peer_port.state_space['my_asset'].reliability
+            my_reliability = my_asset.reliability
 
             # if reliability is poor enough that can't expect good revenue 
-            if self.peer_port.state_space['my_asset'].expected_revenue(my_reliability) <= self.peer_port.state_space['my_asset'].threshold:
+            if my_asset.expected_revenue(my_reliability) <= my_asset.threshold:
                 # Query peers and see who is a battery 
-                battery_peers: Dict[bytes, str] = self.find_battery_peers()
+                battery_peers: Dict[bytes, str] = my_asset.find_battery_peers(self)
 
                 # Solar panel determines some level of capacity that it needs, along with the length of the offer (contract)
-                # receieves asks from battery peers, hosted within the solarpanel object 
-                # solicitation: Offer = self.peer_port.state_space['my_asset'].construct_solicitation()
+                # receives asks from battery peers, hosted within the solarpanel object 
+                solicitation: Offer = my_asset.construct_solicitation()
+                my_asset.solicit(self, battery_peers, solicitation)    
 
-                # self.solicit(battery_peers, solicitation)
-            
-                print('hey', battery_peers)
+                # Evaluate the asks, pick the best, and notify the sender
+                my_asset.accept_best_ask(self, solicitation)
 
-    # MARK: Functions relevant to solarpanel asset 
-    def find_battery_peers(self) -> Dict[bytes, str]: 
-        """
-        Finds the batteries among the peers, only the solarpanel can do this
-        returns: dict of peer names and their endpoint for peers that are batteries 
-        """
-        assert self.asset_type == 'solarpanel', "Only the solar panel can see battery peers in this service"
-
-        send_to: List[bytes] or Dict[bytes, str] = self.peer_port.peers     # send to all peers
-        # self.request_from_peers(state='my_asset_type', send_to=send_to)
-        self.request_from_peers(state='my_asset', send_to=send_to)
-
-        battery_peers: Dict[bytes, str] = {}
-        for peer_name, peer_data in self.peer_port.state_space['other_peer_data'].items():
-            if peer_data['my_asset'].asset_type == 'battery':
-                peer_name: bytes = peer_name.encode('utf8')
-                battery_peers[peer_name] = self.peer_port.peers[peer_name]
-
-        return battery_peers
-
-    def solicit(self, battery_peers, solicitation):
-        send_to: Dict[bytes, str] = battery_peers
-
-    
+            while True:
+                try: 
+                    my_asset.main_loop()
+                except KeyboardInterrupt:
+                    break 

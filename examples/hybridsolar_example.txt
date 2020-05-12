@@ -1,0 +1,14 @@
+# To run the broker 
+entities % python3 mdbroker.py --v 
+
+# To run the client 
+entities % python3 mdclient.py -service=hybridsolar -d='{"multiple_bool": 1}' --v C01
+
+# To run agent-1 (battery) 
+entities % python3 mdagent.py -service=hybridsolar -d='{"asset_type": "battery", "asset_obj_kwargs": {"rated_capacity": 12.0}}' --v --no-t -port 5560 A01
+
+# To run agent-2 (solar-panel)
+entities % python3 mdagent.py -service=hybridsolar -d='{"asset_type": "solarpanel", "asset_obj_kwargs": {"rating": 9.0}}' --v --no-t -port 5561 A02
+
+# To run agent-3 (solar-panel)
+entities % python3 mdagent.py -service=hybridsolar -d='{"asset_type": "solarpanel", "asset_obj_kwargs": {"rating": 10.0}}' --v --no-t -port 5562 A03

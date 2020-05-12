@@ -1,5 +1,9 @@
 import os
+import zmq 
+import time 
 import json
+import pickle 
+import logging 
 import threading
 from pathlib import Path
 from typing import List, Dict
@@ -12,7 +16,6 @@ from auxo_olympus.lib.utils import MDP
 
 # MARK: to be imported from other MDP
 s = None
-
 
 # TODO: Standardize the docstrings for the process method in each of these classes
 
@@ -62,6 +65,7 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
                 reply = self.process(request, self.worker, self.inputs)
             except Exception as e:
                 status = MDP.FAIL
+                logging.exception("Exception was thrown!")
                 print(f"Error: {repr(e)}")
 
             _ = self.worker.recv(reply)     # send reply, don't get msg back
@@ -87,19 +91,60 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
         pass
 
     # P2P suite
-    def request_from_peers(self, state: str, send_to: List[bytes] or Dict[bytes, str]):
+    def request_from_peers(self, state: str, send_to: Dict[bytes, str], info=None, args=None):  
+        # TODO: Implement some type of timeout function on this 
         # Send request to all attached peers asking for particular information, recall that we access the PeerPort object
-        for peer_identity in send_to:
+        expected_num_replies = len(send_to)
+        send_to_set: set = set(send_to)
+
+        context = zmq.Context.instance()
+
+        poller = zmq.Poller()
+        poller_timeout = 2500
+
+        for peer_identity, peer_addr in send_to.items():
+            socket = context.socket(zmq.DEALER) 
+            socket.connect(peer_addr)
+            poller.register(socket, zmq.POLLIN)
+
             request: dict = strip_of_bytes(
-                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state}
+                {'origin': self.peer_port.peer_name, 'command': MDP.W_REQUEST, 'request_state': state, 'info': info, 'args': args}
             )
-            request: bytes = json.dumps(request).encode('utf8')
-            self.peer_port.send(peer_identity, payload=request)
+            
+            try: 
+                request: bytes = json.dumps(request).encode('utf8')
+            except (TypeError, UnicodeEncodeError): 
+                request: bytes = pickle.dumps(request)
 
-        while len(self.peer_port.state_space['other_peer_data']) != len(self.peer_port.peers):
-            # Wait until we receive everything from all the peers
-            pass
+            packaged_request = [b"", request]
+            socket.send_multipart(packaged_request)
 
+        # blocking: wait for replies, although replies from peers can come in asynchronously
+        seen_peers = set() 
+
+        while True: 
+            try: 
+                sockets = dict(poller.poll(poller_timeout))
+            except KeyboardInterrupt: 
+                break 
+            
+            for socket in sockets:          # len(sockets) = 1 
+                """
+                msg:
+                frame 0: empty  <bytes>
+                frame 1: self ip <bytes>
+                frame 2: origin <bytes> 
+                frame 3: payload <bytes>
+                """
+                msg = socket.recv_multipart()
+                seen_peers.add(msg[2])      # add this peer (origin) to the set of seen peers 
+                
+                self.peer_port.process_reply(msg)
+
+            if len(seen_peers & send_to_set) == expected_num_replies:
+                break 
+
+    #! Deprecated 
     def inform_peers(self, send_to: List[bytes] or Dict[bytes, str]):
         assert self.leader_bool, f'{self.peer_port.peer_name} is not the leader of the peer group!'
 

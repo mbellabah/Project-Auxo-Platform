@@ -1,0 +1,11 @@
+# To run the broker 
+entities % python3 mdbroker.py --v 
+
+# To run the client 
+entities % python3 mdclient.py -service=sumnums -d='{"multiple_bool": 1, "target": 15}' --v C01
+
+# To run agent-1
+entities % python3 mdagent.py -service=sumnums -d='{"my_summand": 5}' --v --no-t -port 5560 A01
+
+# To run agent-2
+entities % python3 mdagent.py -service=sumnums -d='{"my_summand": 10}' --v --no-t -port 5561 A02

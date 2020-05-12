@@ -1,0 +1,9 @@
+# To run the broker 
+entities % python3 mdbroker.py --v 
+
+# To run the client 
+entities % python3 mdclient.py -service=echo -d='{"payload": "hello there!"}' --v C01
+
+# To run agent-1
+entities % python3 mdagent.py -service=echo -d='{}' --v --no-t -port 5560 A01
+
