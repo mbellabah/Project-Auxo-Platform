@@ -51,13 +51,13 @@ class Battery(object):
     """
     rated_capacity <float>: 
     """
-    def __init__(self, name, peer_port=None, **kwargs):
+    def __init__(self, name, peer_port, **kwargs):
         self.asset_type = 'battery'
-        self.name = name + '-B'     # append with B for battery (for debugging)
+        # self.name = name + '-B'     # append with B for battery (for debugging)
         self.rated_capacity: float = kwargs['rated_capacity']
         
-        self.peer_port = peer_port
-        if self.peer_port: self.name = self.peer_port.peer_name.decode('utf8')    
+        self.peer_port = peer_port        
+        self.name = self.peer_port.peer_name.decode('utf8')    
         
         self.capacity: float = 2.0 
         self.open_offers = {}
@@ -117,18 +117,25 @@ class Battery(object):
         assert percentage <= 1.0 
         return percentage
 
+    # MARK: Main Loop
+    def main_loop(self):
+        print("A", self.open_offers)
+        print("B", self.commitments)
+        print("*"*30)
+        time.sleep(0.2)
+
 
 class SolarPanel(object):
     """
     rating <float>: 
     """
-    def __init__(self, name, peer_port=None, **kwargs): 
+    def __init__(self, name, peer_port, **kwargs): 
         self.asset_type = 'solarpanel'
-        self.name = name + '-SP'        # append with SP for solar-panel (for debugging)
+        # self.name = name + '-SP'        # append with SP for solar-panel (for debugging)
         self.rating: float = kwargs['rating'] 
 
         self.peer_port = peer_port
-        if self.peer_port: self.name = self.peer_port.peer_name.decode('utf8')
+        self.name = self.peer_port.peer_name.decode('utf8')
 
         self.solicit_timeout: int = 10    # seconds 
         self.reliability = round(random.uniform(0, 1), 2)
@@ -248,6 +255,12 @@ class SolarPanel(object):
         # confirm that peer accepted the ask 
         assert self.peer_port.state_space['other_peer_data'].get(sender, None), "Peer has not accepted the ask"
         self.portfolio[sender] = best_ask 
+
+    # MARK: Main Loop
+    def main_loop(self):
+        print("A", self.portfolio)
+        print("*"*30)
+        time.sleep(0.2)
 
 
 if __name__ == "__main__":

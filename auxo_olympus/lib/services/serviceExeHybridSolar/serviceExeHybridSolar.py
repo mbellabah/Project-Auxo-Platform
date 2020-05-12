@@ -90,6 +90,12 @@ class ServiceExeHybridSolar(ServiceExeBase):
                     ask = my_asset.construct_ask(solicitation)
                     self.peer_port.state_space[f'{ask.recipient}-ask'] = ask 
 
+            while True:
+                try: 
+                    my_asset.main_loop()
+                except KeyboardInterrupt:
+                    break 
+
         # SOLARPANEL
         elif self.asset_type == 'solarpanel': 
             self.worker.leader_bool = True 
@@ -107,3 +113,9 @@ class ServiceExeHybridSolar(ServiceExeBase):
 
                 # Evaluate the asks, pick the best, and notify the sender
                 my_asset.accept_best_ask(self, solicitation)
+
+            while True:
+                try: 
+                    my_asset.main_loop()
+                except KeyboardInterrupt:
+                    break 
