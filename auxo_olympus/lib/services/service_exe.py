@@ -167,14 +167,19 @@ class ServiceExeBase(threading.Thread, metaclass=ABCMeta):
 
 
 # MARK: All the goodies, this is done to automate getting the available services directly from the class names
-curr_dir = Path(os.getcwd())
+curr_dir = Path(os.getcwd())       
 if not (curr_dir.name == 'services' or curr_dir.parent.name == 'services'):
-    curr_dir = curr_dir.parent.joinpath('services')
+    good_dir = curr_dir.parent.joinpath('services')
+    try: 
+        _ = os.listdir(good_dir)
+    except FileNotFoundError: 
+        # We're probably testing, curr_dir is /Project-Auxo-Platform/
+        good_dir = Path.joinpath(curr_dir, 'auxo_olympus/lib/services')
 
-dirmembers = os.listdir(curr_dir)
+dirmembers = os.listdir(good_dir)
 dirmembers: List[str] = [file_name[10:].upper() for file_name in dirmembers if file_name.startswith('serviceExe')]
 
-# to assert that the filen_name doesn't end with .py
+# to assert that the file_name doesn't end with .py
 dirmembers = [file_name[:-3] if file_name.endswith(".PY") else file_name for file_name in dirmembers]
 s = namedtuple('Services', dirmembers)._make(name.lower() for name in dirmembers)
 

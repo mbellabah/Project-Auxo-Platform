@@ -15,7 +15,7 @@ from auxo_olympus.lib.services.service_exe import s as SERVICE
 # TODO: Have agents shutdown cleanly
 # TODO: Make the workers/service_exe within the agent multithreaded
 
-# FIXME: Define all the services here 
+# FIXME: Define all the services that this agent can provide here  
 ALL_SERVICES = [
     SERVICE.ECHO, 
     SERVICE.SUMNUMS, 
