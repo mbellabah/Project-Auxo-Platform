@@ -1,13 +1,16 @@
 from auxo_mount_olympus.ui.mainw import Ui_MainWindow
 
 import sys
-from PySide2.QtWidgets import QApplication, QMainWindow, QTableWidgetItem, QHeaderView
+from PySide2.QtWidgets import QApplication, QMainWindow, QTableWidgetItem, QHeaderView, QMessageBox
 from PySide2.QtCore import QFile
 
 
+from pathlib import Path    # TODO: Switch all the path stuff to pathlib.Path for OOP
+import shutil
 import datetime 
 import os
 import glob 
+
 
 AUXO_OLYMPUS_DIR = "../../auxo_olympus"
 
@@ -30,7 +33,8 @@ class MainWindow(QMainWindow):
         msg = f"{formatted_time} > {msg}" 
         self.ui.statusTextBrowser.append(msg)
 
-    # MARK: Services tab 
+
+#################################### SERVICES TAB ###################################################
     def findServices(self) -> dict: 
         """finds all the serviceExes.txts within the AUXO_OLYMPUS_DIR folder
 
@@ -57,11 +61,12 @@ class MainWindow(QMainWindow):
         
         return services
 
-    def populateTable(self):
+    def populateTable(self, verbose=True):
         """Populates the table with all the available services 
         """
-        msg = f"(Re)loaded available services"
-        self.statusPrint(msg)
+        if verbose: 
+            msg = f"(Re)loaded available services"
+            self.statusPrint(msg)
 
         services = self.findServices()
         num_services = len(services)
@@ -94,7 +99,8 @@ class MainWindow(QMainWindow):
         self.ui.servicesTable.verticalHeader().setDefaultSectionSize(40)
 
     def launchServiceExe(self): 
-        """Takes the selected serviceExe row in the servicesTable, and runs it!
+        """
+        Takes the selected serviceExe row in the servicesTable, and runs it!
         """
         index = self.ui.servicesTable.selectionModel().currentIndex()
         row: int = index.row() 
@@ -105,9 +111,58 @@ class MainWindow(QMainWindow):
 
         # TODO: Connect this to the actual executor within Olympus (LAUNCH THE SERVICE)
 
-#######################################################################################################
+    def deleteServiceExe(self): 
+        """
+        Deletes the selected serviceExe
+        """
+        index = self.ui.servicesTable.selectionModel().currentIndex()
+        row: int = index.row() 
+        # to get the service name
+        service_name = index.sibling(row, 0).data()
 
-    # MARK: Custom tab 
+        # Ask for confirmation, if yes, then delete 
+        response = self.onShowQuestion(msg=f"Delete {service_name}?")
+        if response: 
+            service_name_compressed = "".join(service_name.split())
+            # Delete the service by deleting the entire folder 
+            service_dirpath = Path(AUXO_OLYMPUS_DIR, f"lib/services/serviceExe{service_name_compressed}")
+            if service_dirpath.exists() and service_dirpath.is_dir():
+                shutil.rmtree(service_dirpath)
+
+            msg = f"Deleted service: {service_name}"
+            self.statusPrint(msg)
+
+            # changes the table, so repopulate the table 
+            self.populateTable(verbose=False)
+
+    def editServiceExe(self):
+        """
+        Opens the folder for the selected serviceExe 
+        """
+        index = self.ui.servicesTable.selectionModel().currentIndex()
+        row: int = index.row() 
+        # to get the service name
+        service_name = index.sibling(row, 0).data()
+
+        msg = f"Opening service {service_name} folder"
+        self.statusPrint(msg) 
+
+        # potentially changes the table, so repopulate the table 
+        self.populateTable(verbose=False)
+
+    def onShowQuestion(self, msg) -> bool:
+        """
+        Show a question
+        """
+        flags = QMessageBox.StandardButton.Yes
+        flags |= QMessageBox.StandardButton.Cancel
+        response = QMessageBox.question(self, "Question", msg, flags)
+
+        if response == QMessageBox.Yes: 
+            return True 
+        return False 
+
+#################################### CUSTOM TAB ###################################################
     def servicesGenerateButtonPressed(self):
         """
         LineEdits: 

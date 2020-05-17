@@ -545,10 +545,44 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>servicesDeleteButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>deleteServiceExe()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>311</x>
+     <y>298</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>376</x>
+     <y>334</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>servicesEditButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>editServiceExe()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>212</x>
+     <y>297</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>252</x>
+     <y>329</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>servicesGenerateButtonPressed()</slot>
   <slot>populateTable()</slot>
   <slot>launchServiceExe()</slot>
+  <slot>deleteServiceExe()</slot>
+  <slot>editServiceExe()</slot>
  </slots>
 </ui>

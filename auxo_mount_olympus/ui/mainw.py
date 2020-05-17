@@ -193,6 +193,8 @@ class Ui_MainWindow(object):
         self.agentGenerateButton.clicked.connect(self.serviceNameLineEdit.clear)
         self.servicesReloadButton.clicked.connect(MainWindow.populateTable)
         self.servicesLaunchButton.clicked.connect(MainWindow.launchServiceExe)
+        self.servicesDeleteButton.clicked.connect(MainWindow.deleteServiceExe)
+        self.servicesEditButton.clicked.connect(MainWindow.editServiceExe)
 
         self.tabWidget.setCurrentIndex(0)
 
