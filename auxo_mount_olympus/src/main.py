@@ -1,4 +1,5 @@
 from auxo_mount_olympus.ui.mainw import Ui_MainWindow
+from auxo_mount_olympus.gen import gen 
 
 import sys
 from PySide2.QtWidgets import QApplication, QMainWindow, QTableWidgetItem, QHeaderView, QMessageBox
@@ -144,11 +145,8 @@ class MainWindow(QMainWindow):
         # to get the service name
         service_name = index.sibling(row, 0).data()
 
-        msg = f"Opening service {service_name} folder"
+        msg = f"Opening service {service_name} folder -- please reload services when done editing"
         self.statusPrint(msg) 
-
-        # potentially changes the table, so repopulate the table 
-        self.populateTable(verbose=False)
 
     def onShowQuestion(self, msg) -> bool:
         """
@@ -177,17 +175,27 @@ class MainWindow(QMainWindow):
         description = self.ui.descriptionPlainTextEdit.toPlainText()
         launch_file = self.ui.agentLaunchFileTextEdit.toPlainText() 
 
-        msg = f"Generating service: {service_name} ({author})"
+        try: 
+            self.generateServiceSkeleton(service_name, author, description, launch_file)
+        except:
+            return 
+
+        msg = f"Generated service: {service_name} ({author})"
         self.statusPrint(msg)
 
-        self.generateServiceSkeleton(service_name, author, description, launch_file)
+         # changes the table, so repopulate the table 
+        self.populateTable(verbose=False)
     
     def generateServiceSkeleton(self, service_name, author, description, launch_file):
+        # gen.generate(directory, service_name, author, description, last_modified=None, verbose=True):
 
-        # TODO: Implement and connect to the code skeleton generator 
+        # TODO: Implement the launch file as well   
         if launch_file: 
             pass
-        pass 
+
+        service_topdirpath = Path(AUXO_OLYMPUS_DIR, f"lib/services")
+        gen.generate(service_topdirpath, service_name, author, description, verbose=False)
+
 
 
 if __name__ == "__main__":

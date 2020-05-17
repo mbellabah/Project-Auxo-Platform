@@ -39,7 +39,7 @@ def generate(directory, service_name, author, description, last_modified=None, v
         print(f"gen.py {e}: serviceExe.py template not found")
         pass 
 
-    print(f"Successfully created {folder_name}!")
+    if verbose: print(f"Successfully created {folder_name}!")
 
 
 def populate_txt_file(service_name, author, description, last_modified):
@@ -59,7 +59,8 @@ def populate_py_file(service_name, author, description):
         "service_name": service_name, "service_name_compressed": service_name_compressed, "author": author, "description": description, "created": created, "template_version": TEMPLATE_VERSION
         }
 
-    file_loader = FileSystemLoader('templates')
+    template_dir = CWD.joinpath("..", "gen", "templates").absolute()    # CWD is at Project-Auxo-Platform/auxo_mount_olympus/src
+    file_loader = FileSystemLoader(template_dir)
     env = Environment(loader=file_loader)
     template = env.get_template("serviceExeTemplate.py")
 
