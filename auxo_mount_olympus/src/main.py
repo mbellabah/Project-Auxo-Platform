@@ -87,7 +87,11 @@ class MainWindow(QMainWindow):
         self.ui.servicesTable.setStyleSheet('QTableView::item {border-bottom: 1px solid #d6d9dc;}')    
         # To resize to fill the main window 
         self.ui.servicesTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.ui.servicesTable.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        # self.ui.servicesTable.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)      # if you want rows to divide evenly 
+        # fixed row heights 
+        self.ui.servicesTable.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.ui.servicesTable.verticalHeader().setDefaultSectionSize(40)
 
     def launchServiceExe(self): 
         """Takes the selected serviceExe row in the servicesTable, and runs it!
