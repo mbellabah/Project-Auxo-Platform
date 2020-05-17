@@ -2,6 +2,9 @@ import os
 import pathlib
 import datetime
 
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
+
+TEMPLATE_VERSION = 1.0 
 CWD = pathlib.Path.cwd() 
 
 def generate(directory, service_name, author, description, last_modified=None, verbose=True):
@@ -15,7 +18,6 @@ def generate(directory, service_name, author, description, last_modified=None, v
     try: 
         top_dir.mkdir(exist_ok=False) 
     except FileExistsError as e: 
-        # Folder already exists -- dele
         print(f"gen.py {e}: {folder_name} already exists, delete it then regenerate")
         return 
 
@@ -30,8 +32,14 @@ def generate(directory, service_name, author, description, last_modified=None, v
     # write to the files 
     service_name = " ".join(word.capitalize() for word in parse_folder_name)
     txt_file.write_text(populate_txt_file(service_name, author, description, last_modified))
-    # py_file.write_text("hey")
-    print(f"Successful created {folder_name}!")
+
+    try: 
+        py_file.write_text(populate_py_file(service_name, author, description))
+    except TemplateNotFound as e: 
+        print(f"gen.py {e}: serviceExe.py template not found")
+        pass 
+
+    print(f"Successfully created {folder_name}!")
 
 
 def populate_txt_file(service_name, author, description, last_modified):
@@ -42,12 +50,25 @@ def populate_txt_file(service_name, author, description, last_modified):
     out = f"Name: {service_name}\nAuthor: {author}\nLast Modified: {last_modified}\nDescription: {description}"
     return out 
 
+
 def populate_py_file(service_name, author, description):
-    # TODO: Finish creating this. Use Jinja? 
-    pass 
+    service_name_compressed = "".join(service_name.split())
+    now = datetime.datetime.now() 
+    created = now.strftime("%H:%M:%S %Y-%m-%d ")
+    package = {
+        "service_name": service_name, "service_name_compressed": service_name_compressed, "author": author, "description": description, "created": created, "template_version": TEMPLATE_VERSION
+        }
+
+    file_loader = FileSystemLoader('templates')
+    env = Environment(loader=file_loader)
+    template = env.get_template("serviceExeTemplate.py")
+
+    out = template.render(package=package)
+    return out  
 
 
 if __name__ == "__main__":
+    # Simple debugging/testing (use test_gen.py)
     service_name = "hello world"
     directory = pathlib.Path("../../auxo_olympus/lib/services")
     author = "Bella"
