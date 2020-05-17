@@ -16,6 +16,16 @@ import glob
 AUXO_OLYMPUS_DIR = "../../auxo_olympus"
 
 
+# MARK: Utility 
+def shorten_string(string, num_chars=50) -> str: 
+    """
+    Shortens a description to num_chars and adds ellipsis 
+    """
+    if len(string) > num_chars: 
+        return '{:.{num_chars}}'.format(string, num_chars=num_chars) + '...'
+    return string 
+
+# MARK: Auxo Mount Olympus 
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -55,7 +65,7 @@ class MainWindow(QMainWindow):
                         name = read_file.readline().split(":")[1].strip()
                         author = read_file.readline().split(":")[1].strip()
                         last_modified = (":".join(read_file.readline().split(":")[1:])).strip()
-                        description = read_file.read().split(":")[1].strip()
+                        description = shorten_string(read_file.read().split(":")[1].strip()) 
 
                         services[name] = {"name": name, "author": author, "description": description, "last_modified": last_modified}
                         read_file.close() 
@@ -122,7 +132,7 @@ class MainWindow(QMainWindow):
         service_name = index.sibling(row, 0).data()
 
         # Ask for confirmation, if yes, then delete 
-        response = self.onShowQuestion(msg=f"Delete {service_name}?")
+        response = self.onShowQuestion(msg=f"Delete {service_name}? Can't undo!")
         if response: 
             service_name_compressed = "".join(service_name.split())
             # Delete the service by deleting the entire folder 
