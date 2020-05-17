@@ -45,7 +45,7 @@ def generate(directory, service_name, author, description, last_modified=None, v
 def populate_txt_file(service_name, author, description, last_modified):
     if last_modified is None: 
         now = datetime.datetime.now() 
-        last_modified = now.strftime("%m-%d %H:%M:%S")
+        last_modified = now.strftime("%H:%M:%S %Y-%m-%d")
 
     out = f"Name: {service_name}\nAuthor: {author}\nLast Modified: {last_modified}\nDescription: {description}"
     return out 
@@ -54,7 +54,7 @@ def populate_txt_file(service_name, author, description, last_modified):
 def populate_py_file(service_name, author, description):
     service_name_compressed = "".join(service_name.split())
     now = datetime.datetime.now() 
-    created = now.strftime("%H:%M:%S %Y-%m-%d ")
+    created = now.strftime("%H:%M:%S %Y-%m-%d")
     package = {
         "service_name": service_name, "service_name_compressed": service_name_compressed, "author": author, "description": description, "created": created, "template_version": TEMPLATE_VERSION
         }

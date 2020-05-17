@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
     
                         name = read_file.readline().split(":")[1].strip()
                         author = read_file.readline().split(":")[1].strip()
-                        last_modified = read_file.readline().split(":")[1].strip()
+                        last_modified = (":".join(read_file.readline().split(":")[1:])).strip()
                         description = read_file.read().split(":")[1].strip()
 
                         services[name] = {"name": name, "author": author, "description": description, "last_modified": last_modified}
