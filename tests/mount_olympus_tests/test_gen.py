@@ -1,7 +1,10 @@
 import pytest 
-from auxo_mount_olympus.gen import gen
 import pathlib
 import shutil
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
+
+from auxo_mount_olympus.gen import gen
+
 
 CWD = pathlib.Path.cwd()   
 SERVICES_PATH = CWD.joinpath("../../auxo_olympus/lib/services")
@@ -17,6 +20,7 @@ data = {"name": service_name, "author": author, "description": description, "las
 
 @pytest.fixture(scope="session")
 def services_folder(tmpdir_factory): 
+    # test fixture creates a temporary directory (it deletes it once the tests are done)
     my_tempdir = tmpdir_factory.mktemp("services")
     gen.generate(my_tempdir, service_name, author, description, last_modified)
     """
@@ -25,6 +29,7 @@ def services_folder(tmpdir_factory):
         serviceExeDummyTest/
             __init__.py
             serviceExeDummyTest.py
+                -> Populated with the generator template stuff
             serviceExeDummyTest.txt
                 -> Name: Dummy Test
                    Author: Test
@@ -32,7 +37,7 @@ def services_folder(tmpdir_factory):
                    Description: Just a test 
     """
     yield pathlib.Path(my_tempdir.realpath())
-    shutil.rmtree(str(my_tempdir))
+    shutil.rmtree(str(my_tempdir))   
 
 
 class TestGen: 
@@ -60,3 +65,9 @@ class TestGen:
         read_file.close() 
         
         assert data == services, "serviceExeDummyTest.txt contents are incorrect"
+
+    @pytest.mark.xfail(raises=TemplateNotFound, reason="tempdir does not have the template, don't even run", run=False)
+    def test_py_file(self, services_folder):
+        # Simply checks to see if the .py file is populated 
+        f = services_folder / "serviceExeDummyTest" / "serviceExeDummyTest.py"
+        assert f.stat().st_size != 0, "serviceExeDummyTest.py is not populated"
