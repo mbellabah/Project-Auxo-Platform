@@ -9,8 +9,9 @@ from PySide2.QtCore import QFile
 from pathlib import Path    # TODO: Switch all the path stuff to pathlib.Path for OOP
 import shutil
 import datetime 
-import os
+import os, sys, subprocess
 import glob 
+
 
 
 AUXO_OLYMPUS_DIR = "../../auxo_olympus"
@@ -25,6 +26,17 @@ def shorten_string(string, num_chars=50) -> str:
         return '{:.{num_chars}}'.format(string, num_chars=num_chars) + '...'
     return string 
 
+def open_file(filename):
+    """ 
+    OS independent way to open the folder for a given file/dir
+    """
+    if sys.platform == "win32":
+        os.startfile(filename)
+    else:
+        opener ="open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.call([opener, filename])
+
+
 # MARK: Auxo Mount Olympus 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -33,7 +45,7 @@ class MainWindow(QMainWindow):
         self.ui.setupUi(self)
 
         # init 
-        # self.populateTable()
+        self.populateTable(verbose=False)
 
     def statusPrint(self, msg): 
         """
@@ -71,6 +83,16 @@ class MainWindow(QMainWindow):
                         read_file.close() 
         
         return services
+
+    @property 
+    def selected_serviceExe(self) -> str:
+        """ 
+        The selected serviceExe (row) 
+        """
+        index = self.ui.servicesTable.selectionModel().currentIndex()
+        row: int = index.row() 
+        # to get the service name
+        return index.sibling(row, 0).data()
 
     def populateTable(self, verbose=True):
         """Populates the table with all the available services 
@@ -113,10 +135,7 @@ class MainWindow(QMainWindow):
         """
         Takes the selected serviceExe row in the servicesTable, and runs it!
         """
-        index = self.ui.servicesTable.selectionModel().currentIndex()
-        row: int = index.row() 
-        # to get the service name
-        service_name = index.sibling(row, 0).data()
+        service_name = self.selected_serviceExe
         msg = f"Launching service: {service_name}"
         self.statusPrint(msg)
 
@@ -126,10 +145,7 @@ class MainWindow(QMainWindow):
         """
         Deletes the selected serviceExe
         """
-        index = self.ui.servicesTable.selectionModel().currentIndex()
-        row: int = index.row() 
-        # to get the service name
-        service_name = index.sibling(row, 0).data()
+        service_name = self.selected_serviceExe
 
         # Ask for confirmation, if yes, then delete 
         response = self.onShowQuestion(msg=f"Delete {service_name}? Can't undo!")
@@ -150,13 +166,14 @@ class MainWindow(QMainWindow):
         """
         Opens the folder for the selected serviceExe 
         """
-        index = self.ui.servicesTable.selectionModel().currentIndex()
-        row: int = index.row() 
-        # to get the service name
-        service_name = index.sibling(row, 0).data()
+        service_name = self.selected_serviceExe
+        service_name_compressed = "".join(service_name.split())
 
         msg = f"Opening service {service_name} folder -- please reload services when done editing"
         self.statusPrint(msg) 
+
+        service_topdirpath = Path(AUXO_OLYMPUS_DIR, f"lib/services/serviceExe{service_name_compressed}")
+        open_file(service_topdirpath.absolute())
 
     def onShowQuestion(self, msg) -> bool:
         """

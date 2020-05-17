@@ -199,7 +199,7 @@ class Ui_MainWindow(object):
         self.servicesDeleteButton.clicked.connect(MainWindow.deleteServiceExe)
         self.servicesEditButton.clicked.connect(MainWindow.editServiceExe)
 
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(1)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
@@ -226,6 +226,8 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.servicesTab), QCoreApplication.translate("MainWindow", u"Services", None))
         self.serviceNameLabel.setText(QCoreApplication.translate("MainWindow", u"Service Name:", None))
         self.authorLabel.setText(QCoreApplication.translate("MainWindow", u"Author:", None))
+        self.authorLineEdit.setPlaceholderText("")
+        self.serviceNameLineEdit.setPlaceholderText("")
         self.descriptionLabel.setText(QCoreApplication.translate("MainWindow", u"Description:", None))
         self.agentGenerateButton.setText(QCoreApplication.translate("MainWindow", u"Generate", None))
 #if QT_CONFIG(tooltip)
